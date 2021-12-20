@@ -70,7 +70,7 @@ impl X11Connection {
         let display: *mut Display = unsafe { (xlib.XOpenDisplay)(NULL) };
         if display.is_null() {
             return Err(X11ConnectionError::XOpenDisplayError(
-                "Couldn't connetct to X11 display.".to_string(),
+                "Couldn't connect to X11 display.".to_string(),
             ));
         }
         let screen: c_int = unsafe { (xlib.XDefaultScreen)(display) };
