@@ -59,8 +59,6 @@ pub struct X11Connection {
     xlib: Xlib,
     /// Default display (asserted to be not null)
     display: *mut Display,
-    /// Default screen
-    screen: c_int,
     /// Root window of above display and screen
     window: c_ulong,
 }
@@ -81,7 +79,6 @@ impl X11Connection {
         Ok(Self {
             xlib,
             display,
-            screen,
             window,
         })
     }
