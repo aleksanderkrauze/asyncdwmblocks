@@ -69,19 +69,25 @@ pub struct Block {
     identifier: String,
     command: String,
     args: Vec<String>,
-    // TODO: make interval optional to prevent block from refreshing.
-    interval: Duration,
+    interval: Option<Duration>,
     result: Option<String>,
 }
 
 impl Block {
-    pub fn new(identifier: String, command: String, args: Vec<String>, interval: u32) -> Self {
-        assert!(interval > 0, "Interval must be at least 1 second.");
+    pub fn new(
+        identifier: String,
+        command: String,
+        args: Vec<String>,
+        interval: Option<u32>,
+    ) -> Self {
+        if interval.is_some() {
+            assert!(interval > Some(0), "Interval must be at least 1 second.");
+        }
         Self {
             identifier,
             command,
             args,
-            interval: Duration::from_secs(interval as u64),
+            interval: interval.map(|i| Duration::from_secs(i as u64)),
             result: None,
         }
     }
@@ -110,17 +116,17 @@ impl Block {
         self.result = Some(
             String::from_utf8_lossy(&output)
                 .chars()
-                .filter(|c| c != &'\n')
+                .filter(|c| c != &'\n') // TODO: document this filtering
                 .collect(),
         );
         Ok(())
     }
 
-    pub fn get_scheduler(&self) -> Interval {
-        let mut scheduler = interval(self.interval);
+    pub fn get_scheduler(&self) -> Option<Interval> {
+        let mut scheduler = interval(self.interval?);
         scheduler.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
-        scheduler
+        Some(scheduler)
     }
 }
 
@@ -197,6 +203,7 @@ impl Blocks {
             .iter()
             .filter(|b| b.result.is_some())
             .map(|b| b.result.as_ref().unwrap().clone()) // check if this clone is necessary
+            // TODO: rewrite this to avoid realocarion
             .reduce(|mut acc, b| {
                 acc.push_str(&self.delimiter);
                 acc.push_str(&b);
@@ -235,7 +242,7 @@ mod tests {
                 identifier: String::new(),
                 command: String::new(),
                 args: Vec::new(),
-                interval: Duration::new(0, 0),
+                interval: None,
                 result: x,
             })
             .collect();
@@ -247,7 +254,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn bloks_run_error_types() {
+    async fn block_run_error_types() {
         use BlockRunError::*;
 
         let command_error = CommandError(std::io::Error::new(std::io::ErrorKind::Other, "testing"));
@@ -272,7 +279,7 @@ mod tests {
             "echo-test".to_string(),
             "echo".to_string(),
             vec!["ECHO".to_string()],
-            42,
+            None,
         );
         assert_eq!(echo.result, None);
         echo.run().await.expect("Failed to run command.");
@@ -320,9 +327,9 @@ mod tests {
     #[test]
     fn blocks_new_ok() {
         let data = vec![
-            Block::new("battery".into(), "".into(), vec![], 1),
-            Block::new("date".into(), "".into(), vec![], 1),
-            Block::new("time".into(), "".into(), vec![], 1),
+            Block::new("battery".into(), "".into(), vec![], None),
+            Block::new("date".into(), "".into(), vec![], None),
+            Block::new("time".into(), "".into(), vec![], None),
         ];
         let cloned_data = data.clone();
 
@@ -334,17 +341,17 @@ mod tests {
     #[test]
     fn blocks_new_err() {
         let data = vec![
-            Block::new("battery".into(), "".into(), vec![], 1),
-            Block::new("date".into(), "".into(), vec![], 1),
-            Block::new("date".into(), "".into(), vec![], 1),
-            Block::new("time".into(), "".into(), vec![], 1),
-            Block::new("time".into(), "".into(), vec![], 1),
-            Block::new("time".into(), "".into(), vec![], 1),
+            Block::new("battery".into(), "".into(), vec![], None),
+            Block::new("date".into(), "".into(), vec![], None),
+            Block::new("date".into(), "".into(), vec![], None),
+            Block::new("time".into(), "".into(), vec![], None),
+            Block::new("time".into(), "".into(), vec![], None),
+            Block::new("time".into(), "".into(), vec![], None),
         ];
         let unique_data = vec![
-            Block::new("battery".into(), "".into(), vec![], 1),
-            Block::new("date".into(), "".into(), vec![], 1),
-            Block::new("time".into(), "".into(), vec![], 1),
+            Block::new("battery".into(), "".into(), vec![], None),
+            Block::new("date".into(), "".into(), vec![], None),
+            Block::new("time".into(), "".into(), vec![], None),
         ];
         let expected_errors: HashMap<String, usize> = vec![("date".into(), 2), ("time".into(), 3)]
             .into_iter()
@@ -367,12 +374,12 @@ mod tests {
 
     #[tokio::test]
     async fn blocks_init() {
-        let date_block = Block::new("date".into(), "date".into(), vec!["+%d/%m/%Y".into()], 1);
+        let date_block = Block::new("date".into(), "date".into(), vec!["+%d/%m/%Y".into()], None);
         let info_block = Block::new(
             "info".into(),
             "echo".into(),
             vec!["asyncdwmblocks v1".into()],
-            1,
+            None,
         );
 
         let current_date: DateTime<Utc> = DateTime::from(SystemTime::now());
