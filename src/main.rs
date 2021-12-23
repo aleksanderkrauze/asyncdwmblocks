@@ -14,7 +14,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
 }
 
 fn main() {
-    let rt = runtime::Builder::new_current_thread()
+    let rt = runtime::Builder::new_multi_thread()
         .build()
         .expect("Failed to create tokio runtime.");
 
