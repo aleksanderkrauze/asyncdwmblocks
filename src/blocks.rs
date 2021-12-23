@@ -429,7 +429,14 @@ mod tests {
 
     #[tokio::test]
     async fn blocks_init() {
-        let date_block = Block::new("date".into(), "date".into(), vec!["+%d/%m/%Y".into()], None);
+        // Flag -u sets UTC standard. Since this is what we are comparing
+        // this must be set, or this test will fail around midnight.
+        let date_block = Block::new(
+            "date".into(),
+            "date".into(),
+            vec!["-u".into(), "+%d/%m/%Y".into()],
+            None,
+        );
         let info_block = Block::new(
             "info".into(),
             "echo".into(),
