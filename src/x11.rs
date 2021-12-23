@@ -7,7 +7,7 @@ use x11_dl::error::OpenError;
 use x11_dl::xlib::{Display, Xlib};
 
 /// C's NULL *char pointer
-const NULL: *const c_char = &0i8;
+const NULL: *const c_char = std::ptr::null::<c_char>();
 
 /// This enum represents possible errors that may occure
 /// when connecting to a X server.
