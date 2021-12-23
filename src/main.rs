@@ -1,10 +1,9 @@
-mod blocks;
-mod x11;
-
 use std::error::Error;
 use std::process;
 
 use tokio::runtime;
+
+use asyncdwmblocks::x11;
 
 async fn run() -> Result<(), Box<dyn Error>> {
     let x11 = x11::X11Connection::new()?;

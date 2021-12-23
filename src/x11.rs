@@ -60,8 +60,8 @@ impl From<OpenError> for X11ConnectionError {
 ///
 /// # Example
 /// ```
-/// # fn main() -> Result<(), X11ConnectionError> {
-/// use x11::X11Connection;
+/// use asyncdwmblocks::x11::X11Connection;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// {
 ///     let conn = X11Connection::new()?; // Connection to X Server is established
 ///

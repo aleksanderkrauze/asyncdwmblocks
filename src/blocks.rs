@@ -32,11 +32,11 @@ use tokio::time::{interval, Duration, Interval, MissedTickBehavior};
 ///
 /// # Example
 /// ```
-/// use blocks::Block;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// use asyncdwmblocks::blocks::Block;
+/// # async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
 ///
-/// let mut b = Block::new("battery".into(), "my_battery_script.sh".into(), vec![], 60);
-/// match b.run() {
+/// let mut b = Block::new("battery".into(), "my_battery_script.sh".into(), vec![], Some(60));
+/// match b.run().await {
 ///     Ok(_) => {
 ///         // everything is ok.
 ///     }
@@ -147,7 +147,7 @@ impl Block {
         }
     }
 
-    async fn run(&mut self) -> Result<(), BlockRunError> {
+    pub async fn run(&mut self) -> Result<(), BlockRunError> {
         let (sender, receiver) = oneshot::channel();
 
         let command = self.command.clone();
@@ -177,7 +177,7 @@ impl Block {
         Ok(())
     }
 
-    fn get_scheduler(&self) -> Option<Interval> {
+    pub fn get_scheduler(&self) -> Option<Interval> {
         let mut scheduler = interval(self.interval?);
         scheduler.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
