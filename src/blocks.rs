@@ -3,14 +3,73 @@ use std::default::Default;
 use std::error::Error;
 use std::fmt;
 
+use futures::future::join_all;
 use tokio::process::Command;
+use tokio::sync::oneshot;
+use tokio::task;
 use tokio::time::{interval, Duration, Interval, MissedTickBehavior};
+
+#[derive(Debug)]
+pub enum BlockRunError {
+    CommandError(std::io::Error),
+    JoinError(task::JoinError),
+    ChannelClosed,
+}
+
+impl fmt::Display for BlockRunError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let msg = match self {
+            BlockRunError::CommandError(e) => e.to_string(),
+            BlockRunError::JoinError(e) => e.to_string(),
+            BlockRunError::ChannelClosed => "Channel was closed".to_string(),
+        };
+
+        write!(f, "{}", msg)
+    }
+}
+
+impl Error for BlockRunError {}
+
+impl From<std::io::Error> for BlockRunError {
+    fn from(err: std::io::Error) -> Self {
+        Self::CommandError(err)
+    }
+}
+
+impl From<task::JoinError> for BlockRunError {
+    fn from(err: task::JoinError) -> Self {
+        Self::JoinError(err)
+    }
+}
+
+impl From<oneshot::error::RecvError> for BlockRunError {
+    fn from(_err: oneshot::error::RecvError) -> Self {
+        Self::ChannelClosed
+    }
+}
+
+impl BlockRunError {
+    pub fn is_internal(&self) -> bool {
+        match self {
+            BlockRunError::JoinError(_) | BlockRunError::ChannelClosed => true,
+            BlockRunError::CommandError(_) => false,
+        }
+    }
+
+    pub fn is_io(&self) -> bool {
+        match self {
+            BlockRunError::JoinError(_) | BlockRunError::ChannelClosed => false,
+            BlockRunError::CommandError(_) => true,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block {
     identifier: String,
     command: String,
     args: Vec<String>,
+    // TODO: make interval optional to prevent block from refreshing.
     interval: Duration,
     result: Option<String>,
 }
@@ -27,15 +86,33 @@ impl Block {
         }
     }
 
-    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
-        let output = Command::new(&self.command)
-            .args(&self.args)
-            .output()
-            .await?
-            .stdout;
-        let result = String::from_utf8_lossy(&output).to_string();
-        self.result = Some(result);
+    pub async fn run(&mut self) -> Result<(), BlockRunError> {
+        let (sender, receiver) = oneshot::channel();
 
+        let command = self.command.clone();
+        let args = self.args.clone();
+
+        task::spawn_blocking(move || async {
+            // ignore sending error
+            let _ = sender.send(
+                Command::new(command)
+                    .args(args)
+                    .output()
+                    .await
+                    .map(|o| o.stdout),
+            );
+        })
+        .await?
+        .await;
+
+        let output: Vec<u8> = receiver.await??;
+
+        self.result = Some(
+            String::from_utf8_lossy(&output)
+                .chars()
+                .filter(|c| c != &'\n')
+                .collect(),
+        );
         Ok(())
     }
 
@@ -86,19 +163,15 @@ impl Blocks {
         let mut errors: HashMap<String, usize> = HashMap::new();
         let filtered_blocks: Vec<Block> = blocks
             .into_iter()
-            .filter(|b| {
-                // Mapping is required to satisfy "mutable_borrow_reservation_conflict" lint.
-                // See: https://github.com/rust-lang/rust/issues/59159
-                match errors.get(&b.identifier).map(|n| *n) {
-                    Some(n) => {
-                        errors.insert(b.identifier.clone(), n + 1);
-                        duplicates = true;
-                        false
-                    }
-                    None => {
-                        errors.insert(b.identifier.clone(), 1);
-                        true
-                    }
+            .filter(|b| match errors.get(&b.identifier).copied() {
+                Some(n) => {
+                    errors.insert(b.identifier.clone(), n + 1);
+                    duplicates = true;
+                    false
+                }
+                None => {
+                    errors.insert(b.identifier.clone(), 1);
+                    true
                 }
             })
             .collect();
@@ -131,6 +204,12 @@ impl Blocks {
             })
             .unwrap_or_default()
     }
+
+    pub async fn init(&mut self) {
+        let futures = self.blocks.iter_mut().map(|b| b.run()).collect::<Vec<_>>();
+
+        let _ = join_all(futures).await;
+    }
 }
 
 impl Default for Blocks {
@@ -145,6 +224,8 @@ impl Default for Blocks {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{DateTime, Utc};
+    use std::time::SystemTime;
 
     fn setup_blocks_for_get_status_bar(delimiter: &str, data: Vec<Option<&str>>) -> Blocks {
         let blocks: Vec<Block> = data
@@ -166,6 +247,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn bloks_run_error_types() {
+        use BlockRunError::*;
+
+        let command_error = CommandError(std::io::Error::new(std::io::ErrorKind::Other, "testing"));
+        let channel_closed = ChannelClosed;
+        // This is the only way I know to create a JoinError
+        let join_error = tokio::spawn(async { panic!() }).await.unwrap_err();
+        let join_error = JoinError(join_error);
+
+        assert_eq!(command_error.is_io(), true);
+        assert_eq!(command_error.is_internal(), false);
+
+        assert_eq!(channel_closed.is_io(), false);
+        assert_eq!(channel_closed.is_internal(), true);
+
+        assert_eq!(join_error.is_io(), false);
+        assert_eq!(join_error.is_internal(), true);
+    }
+
+    #[tokio::test]
     async fn block_run() {
         let mut echo = Block::new(
             "echo-test".to_string(),
@@ -175,7 +276,7 @@ mod tests {
         );
         assert_eq!(echo.result, None);
         echo.run().await.expect("Failed to run command.");
-        assert_eq!(echo.result, Some("ECHO\n".to_string()));
+        assert_eq!(echo.result, Some("ECHO".to_string()));
     }
 
     #[test]
@@ -261,6 +362,28 @@ mod tests {
                 blocks: unique_data,
                 delimiter
             }
+        );
+    }
+
+    #[tokio::test]
+    async fn blocks_init() {
+        let date_block = Block::new("date".into(), "date".into(), vec!["+%d/%m/%Y".into()], 1);
+        let info_block = Block::new(
+            "info".into(),
+            "echo".into(),
+            vec!["asyncdwmblocks v1".into()],
+            1,
+        );
+
+        let current_date: DateTime<Utc> = DateTime::from(SystemTime::now());
+        let current_date = current_date.format("%d/%m/%Y").to_string();
+
+        let mut blocks = Blocks::new(vec![date_block, info_block], " | ".into()).unwrap();
+        blocks.init().await;
+
+        assert_eq!(
+            blocks.get_status_bar(),
+            format!("{} | asyncdwmblocks v1", current_date)
         );
     }
 }
