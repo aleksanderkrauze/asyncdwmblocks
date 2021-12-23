@@ -5,4 +5,8 @@ edition = "2021"
 
 [dependencies]
 x11-dl = "2.19"
-tokio = { version = "1", features = ["rt", "time", "sync"] }
+tokio = { version = "1", features = ["rt", "time", "sync", "process", "macros"] }
+futures = "0.3"
+
+[dev-dependencies]
+chrono = "0.4"

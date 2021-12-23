@@ -1,3 +1,4 @@
+mod blocks;
 mod x11;
 
 use std::error::Error;
