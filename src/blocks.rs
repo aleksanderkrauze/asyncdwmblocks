@@ -1,3 +1,5 @@
+//! This module defines [Block] and [Blocks] types and their errors.
+
 use std::collections::HashMap;
 use std::default::Default;
 use std::error::Error;
@@ -9,10 +11,54 @@ use tokio::sync::oneshot;
 use tokio::task;
 use tokio::time::{interval, Duration, Interval, MissedTickBehavior};
 
+/// Error that may occur when running (and awaiting) [Block::run].
+///
+/// While awaiting for `Block::run()` three things could happen wrong:
+///
+///  1. Execution of provided command could fail (represented by `CommandError` variant).
+///  2. Task spawned by `tokio` failed to finish (represented by `JoinError` variant).
+///  3. Channel used to communicate stdout of running command closed before
+///  sending value (represented by `ChannelClosed` variant).
+///
+/// Depending on witch variant happened different action might be appropriate.
+/// If it is the first case then this error is probably user fault. We can then
+/// choose to end program, log it, inform user or simply ignore it. If it is on
+/// the other hand the latter case, then it is probably internal bug that should
+/// be reported.
+///
+/// To help identify these cases and allow to skip pattern matching, two helping
+/// methods are provided: [is_internal](BlockRunError::is_internal) and [is_io](BlockRunError::is_io).
+/// They are exhaustive and mutually exclusive.
+///
+/// # Example
+/// ```
+/// use blocks::Block;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+///
+/// let mut b = Block::new("battery".into(), "my_battery_script.sh".into(), vec![], 60);
+/// match b.run() {
+///     Ok(_) => {
+///         // everything is ok.
+///     }
+///     Err(e) => {
+///         if e.is_io() {
+///             // log error and continue work.
+///         } else {
+///             panic!("Encountered unexpected internal error: {}", e);
+///         }
+///     }
+/// };
+///
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug)]
 pub enum BlockRunError {
+    /// io error that happened when Command was executed.
     CommandError(std::io::Error),
+    /// tokio's JoinError that happened in spawned job.
     JoinError(task::JoinError),
+    /// tokio's oneshot channel was closed before it could receive computation result.
     ChannelClosed,
 }
 
@@ -49,6 +95,10 @@ impl From<oneshot::error::RecvError> for BlockRunError {
 }
 
 impl BlockRunError {
+    /// Returns true if error is internal.
+    ///
+    /// This means that this error should be treated as a bug
+    /// as this means that either tokio or this program failed.
     pub fn is_internal(&self) -> bool {
         match self {
             BlockRunError::JoinError(_) | BlockRunError::ChannelClosed => true,
@@ -56,6 +106,11 @@ impl BlockRunError {
         }
     }
 
+    /// Returns true if error is external (failure to run a command).
+    ///
+    /// This error is probably user fault and can be ignored (if user wishes so).
+    /// It could be caused by user providing wrong command, not having proper
+    /// permissions to run a script, `$PATH` being wrongly set, etc.
     pub fn is_io(&self) -> bool {
         match self {
             BlockRunError::JoinError(_) | BlockRunError::ChannelClosed => false,
@@ -92,7 +147,7 @@ impl Block {
         }
     }
 
-    pub async fn run(&mut self) -> Result<(), BlockRunError> {
+    async fn run(&mut self) -> Result<(), BlockRunError> {
         let (sender, receiver) = oneshot::channel();
 
         let command = self.command.clone();
@@ -122,7 +177,7 @@ impl Block {
         Ok(())
     }
 
-    pub fn get_scheduler(&self) -> Option<Interval> {
+    fn get_scheduler(&self) -> Option<Interval> {
         let mut scheduler = interval(self.interval?);
         scheduler.set_missed_tick_behavior(MissedTickBehavior::Delay);
 

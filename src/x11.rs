@@ -1,3 +1,6 @@
+//! This module uses ffi bindings to export an API
+//! that allows for interacting with an X11 protocol.
+
 use std::error::Error;
 use std::ffi::CString;
 use std::fmt;
@@ -9,7 +12,7 @@ use x11_dl::xlib::{Display, Xlib};
 /// C's NULL *char pointer
 const NULL: *const c_char = std::ptr::null::<c_char>();
 
-/// This enum represents possible errors that may occure
+/// This enum represents possible errors that may occurs
 /// when connecting to a X server.
 ///
 /// Every variant holds a String with user-friendly error
@@ -18,7 +21,7 @@ const NULL: *const c_char = std::ptr::null::<c_char>();
 pub enum X11ConnectionError {
     /// Opening [Xlib] failed
     XlibOpenError(String),
-    /// Opening connection to a defautl display failed
+    /// Opening connection to a default display failed
     /// (null pointer returned)
     XOpenDisplayError(String),
 }
@@ -47,13 +50,26 @@ impl From<OpenError> for X11ConnectionError {
 /// When this struct is constructed following things happen:
 /// a connection to xlib is established, a connection to
 /// default X Display is establiahed, default screen and window
-/// are aquired. If following steps fail a [X11ConnectionError]
+/// are acquired. If following steps fail a [X11ConnectionError]
 /// is returned. Connection to a Display is automatically ended
 /// when this structure is [dropped](Drop).
 ///
 /// Further interaction with X11 happens through methods of this
 /// struct. All of the methods are safe and internally using
 /// unsafe to call functions from C library.
+///
+/// # Example
+/// ```
+/// # fn main() -> Result<(), X11ConnectionError> {
+/// use x11::X11Connection;
+/// {
+///     let conn = X11Connection::new()?; // Connection to X Server is established
+///
+///     conn.set_root_name("Hello, world!");
+/// } // Here conn is dropped and connection to X Server is safely ended
+/// # Ok(())
+/// # }
+/// ```
 pub struct X11Connection {
     /// Xlib containing pointers to X11 functions
     xlib: Xlib,
@@ -97,7 +113,7 @@ impl X11Connection {
     }
 }
 
-/// When this struct is droppend a connection to
+/// When this struct is dropped a connection to
 /// X11 Display is closed.
 impl Drop for X11Connection {
     fn drop(&mut self) {
