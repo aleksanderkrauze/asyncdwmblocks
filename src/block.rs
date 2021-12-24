@@ -241,8 +241,10 @@ impl Block {
     pub fn id(&self) -> &String {
         &self.id
     }
+}
 
-    #[cfg(test)]
+#[cfg(test)]
+impl Block {
     pub fn set_result(&mut self, result: Option<String>) {
         self.result = result;
     }
