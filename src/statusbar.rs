@@ -131,45 +131,45 @@ mod tests {
     }
 
     #[test]
-    fn blocks_get_status_bar() {
-        let blocks =
+    fn statusbar_get_status_bar() {
+        let statusbar =
             setup_blocks_for_get_status_bar(" ", vec![Some("A"), Some("B b B"), None, Some("D--")]);
-        assert_eq!(String::from("A B b B D--"), blocks.get_status_bar());
+        assert_eq!(String::from("A B b B D--"), statusbar.get_status_bar());
     }
 
     #[test]
-    fn blocks_get_status_bar_empty() {
-        let blocks = StatusBar::default();
-        assert_eq!(String::from(""), blocks.get_status_bar());
+    fn statusbar_get_status_bar_empty() {
+        let statusbar = StatusBar::default();
+        assert_eq!(String::from(""), statusbar.get_status_bar());
     }
 
     #[test]
-    fn blocks_get_status_bar_all_none() {
-        let blocks = setup_blocks_for_get_status_bar(" ", vec![None, None, None, None, None]);
-        assert_eq!(String::from(""), blocks.get_status_bar());
+    fn statusbar_get_status_bar_all_none() {
+        let statusbar = setup_blocks_for_get_status_bar(" ", vec![None, None, None, None, None]);
+        assert_eq!(String::from(""), statusbar.get_status_bar());
     }
 
     #[test]
-    fn blocks_get_status_bar_emojis() {
-        let blocks = setup_blocks_for_get_status_bar(
+    fn statusbar_get_status_bar_emojis() {
+        let statusbar = setup_blocks_for_get_status_bar(
             " | ",
             vec![Some("🔋 50%"), Some("📅 01/01/2022"), Some("🕒 12:00")],
         );
         assert_eq!(
             String::from("🔋 50% | 📅 01/01/2022 | 🕒 12:00"),
-            blocks.get_status_bar()
+            statusbar.get_status_bar()
         );
     }
 
     #[test]
-    fn blocks_new_empty() {
-        let blocks = StatusBar::new(vec![], " ".into());
-        assert!(blocks.is_ok());
-        assert_eq!(blocks.unwrap().blocks, vec![]);
+    fn statusbar_new_empty() {
+        let statusbar = StatusBar::new(vec![], " ".into());
+        assert!(statusbar.is_ok());
+        assert_eq!(statusbar.unwrap().blocks, vec![]);
     }
 
     #[test]
-    fn blocks_new_ok() {
+    fn statusbar_new_ok() {
         let data = vec![
             Block::new("battery".into(), "".into(), vec![], None),
             Block::new("date".into(), "".into(), vec![], None),
@@ -177,13 +177,13 @@ mod tests {
         ];
         let cloned_data = data.clone();
 
-        let blocks = StatusBar::new(data, " ".into());
-        assert!(blocks.is_ok());
-        assert_eq!(blocks.unwrap().blocks, cloned_data);
+        let statusbar = StatusBar::new(data, " ".into());
+        assert!(statusbar.is_ok());
+        assert_eq!(statusbar.unwrap().blocks, cloned_data);
     }
 
     #[test]
-    fn blocks_new_err() {
+    fn statusbar_new_err() {
         let data = vec![
             Block::new("battery".into(), "".into(), vec![], None),
             Block::new("date".into(), "".into(), vec![], None),
@@ -202,13 +202,13 @@ mod tests {
             .collect();
         let delimiter = String::from(" ");
 
-        let blocks = StatusBar::new(data, delimiter.clone());
-        assert!(blocks.is_err());
-        let err = blocks.unwrap_err();
+        let statusbar = StatusBar::new(data, delimiter.clone());
+        assert!(statusbar.is_err());
+        let err = statusbar.unwrap_err();
         assert_eq!(err.errors, expected_errors);
-        let recovered_blocks = err.recover();
+        let recovered_statusbar = err.recover();
         assert_eq!(
-            recovered_blocks,
+            recovered_statusbar,
             StatusBar {
                 blocks: unique_data,
                 delimiter
@@ -217,7 +217,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn blocks_init() {
+    async fn statusbar_init() {
         // Flag -u sets UTC standard. Since this is what we are comparing
         // this must be set, or this test will fail around midnight.
         let date_block = Block::new(
@@ -236,11 +236,11 @@ mod tests {
         let current_date: DateTime<Utc> = DateTime::from(SystemTime::now());
         let current_date = current_date.format("%d/%m/%Y").to_string();
 
-        let mut blocks = StatusBar::new(vec![date_block, info_block], " | ".into()).unwrap();
-        blocks.init().await;
+        let mut statusbar = StatusBar::new(vec![date_block, info_block], " | ".into()).unwrap();
+        statusbar.init().await;
 
         assert_eq!(
-            blocks.get_status_bar(),
+            statusbar.get_status_bar(),
             format!("{} | asyncdwmblocks v1", current_date)
         );
     }
