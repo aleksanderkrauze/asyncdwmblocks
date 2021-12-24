@@ -1,2 +1,3 @@
-pub mod blocks;
+pub mod block;
+pub mod statusbar;
 pub mod x11;
