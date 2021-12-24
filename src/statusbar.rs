@@ -68,6 +68,7 @@ impl Error for StatusBarCreationError {}
 pub struct StatusBar {
     blocks: Vec<Block>,
     delimiter: String,
+    buff_size: Option<usize>,
 }
 
 impl StatusBar {
@@ -109,6 +110,7 @@ impl StatusBar {
         let parsed_blocks = Self {
             blocks: filtered_blocks,
             delimiter,
+            buff_size: None,
         };
         if duplicates {
             let errors: HashMap<String, usize> =
@@ -128,17 +130,31 @@ impl StatusBar {
     /// If non of the blocks executed it's command and empty String
     /// is returned.
     pub fn get_status_bar(&self) -> String {
-        self.blocks
+        let mut blocks = self
+            .blocks
             .iter()
-            .filter(|b| b.result().is_some())
-            .map(|b| b.result().as_ref().unwrap().clone()) // check if this clone is necessary
-            // TODO: rewrite this to avoid realocarion
-            .reduce(|mut acc, b| {
-                acc.push_str(&self.delimiter);
-                acc.push_str(&b);
-                acc
-            })
-            .unwrap_or_default()
+            .map(|b| b.result())
+            .filter(|r| r.is_some())
+            .map(|r| r.as_ref().unwrap());
+
+        let first = blocks.next();
+        if first.is_none() {
+            return String::new();
+        }
+
+        let mut buffer = match self.buff_size {
+            Some(size) => String::with_capacity(size),
+            None => String::new(),
+        };
+
+        buffer.push_str(first.unwrap());
+        blocks.for_each(|r| {
+            buffer.push_str(&self.delimiter);
+            buffer.push_str(r);
+        });
+
+        buffer.shrink_to_fit();
+        buffer
     }
 
     /// Initialises all `Block`s by awaiting completion of [running](Block::run) them.
@@ -155,6 +171,7 @@ impl Default for StatusBar {
         Self {
             blocks: Vec::default(),
             delimiter: String::from(" "),
+            buff_size: None,
         }
     }
 }
@@ -179,6 +196,7 @@ mod tests {
         StatusBar {
             blocks,
             delimiter: String::from(delimiter),
+            buff_size: None,
         }
     }
 
@@ -263,7 +281,8 @@ mod tests {
             recovered_statusbar,
             StatusBar {
                 blocks: unique_data,
-                delimiter
+                delimiter,
+                buff_size: None
             }
         );
     }

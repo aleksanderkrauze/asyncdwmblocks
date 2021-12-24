@@ -116,6 +116,9 @@ impl BlockRunError {
     }
 }
 
+// TODO: If result is &self and run is &mut self does it mean that
+// we can't get past result while we are await current computation?
+
 /// This struct represents single status bar block.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block {
