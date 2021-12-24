@@ -123,11 +123,7 @@ pub struct Block {
     command: String,
     args: Vec<String>,
     interval: Option<Duration>,
-
-    #[cfg(not(test))]
     result: Option<String>,
-    #[cfg(test)]
-    pub(crate) result: Option<String>,
 }
 
 impl Block {
@@ -244,6 +240,11 @@ impl Block {
     /// Returns reference to Block's id.
     pub fn id(&self) -> &String {
         &self.id
+    }
+
+    #[cfg(test)]
+    pub fn set_result(&mut self, result: Option<String>) {
+        self.result = result;
     }
 }
 

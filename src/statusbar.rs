@@ -119,7 +119,7 @@ mod tests {
             .map(|x| x.map(|x| x.to_string()))
             .map(|x| {
                 let mut block = Block::new("".into(), "".into(), vec![], None);
-                block.result = x;
+                block.set_result(x);
                 block
             })
             .collect();
