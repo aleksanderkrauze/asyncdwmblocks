@@ -119,6 +119,7 @@ impl BlockRunError {
     }
 }
 
+/// This struct represents single status bar block.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block {
     identifier: String,
@@ -129,12 +130,26 @@ pub struct Block {
 }
 
 impl Block {
+    /// Creates a new `Block`.
+    ///
+    /// Required arguments have following meaning:
+    ///  - `identifier`: id of this block
+    ///  - `command`: command that should be executed every time this block is reloaded
+    ///  - `args`: arguments to this command
+    ///  - `interval`: at witch rate (in seconds) this block should reload.
+    ///  If `None` then it won't be automatically reload (but still can be by sending
+    ///  proper signal to status bar)
+    ///
+    ///  # Panics
+    ///  If `interval` is `Some`, then it must be greater than 0. Interval with value
+    ///  `Some(0)` will panic.
     pub fn new(
         identifier: String,
         command: String,
         args: Vec<String>,
-        interval: Option<u32>,
+        interval: Option<u64>,
     ) -> Self {
+        // TODO: make new accept Cows instead of Strings.
         if interval.is_some() {
             assert!(interval > Some(0), "Interval must be at least 1 second.");
         }
@@ -142,11 +157,33 @@ impl Block {
             identifier,
             command,
             args,
-            interval: interval.map(|i| Duration::from_secs(i as u64)),
+            interval: interval.map(|i| Duration::from_secs(i)),
             result: None,
         }
     }
 
+    /// Executes Block's command by running tokio's **`spawn_blocking`**.
+    ///
+    /// This method runs Block's command (with it's args) and returns `Ok(())`
+    /// on success and `Err(BlockRunError)` on failure. Consult [it's](BlockRunError)
+    /// documentation for more details.
+    ///
+    /// If succeeded it takes characters from command's output (stdout) up to first
+    /// newline character and then sets it as a inner result.
+    ///
+    /// # Example
+    /// ```
+    /// use asyncdwmblocks::blocks::Block;
+    ///
+    /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut block = Block::new("hello".into(), "echo".into(), vec!["Hello".into()], None);
+    /// block.run().await?;
+    ///
+    /// assert_eq!(block.result(), &Some(String::from("Hello")));
+    /// # Ok(())
+    /// # }
+    ///
+    /// ```
     pub async fn run(&mut self) -> Result<(), BlockRunError> {
         let (sender, receiver) = oneshot::channel();
 
@@ -171,17 +208,41 @@ impl Block {
         self.result = Some(
             String::from_utf8_lossy(&output)
                 .chars()
-                .filter(|c| c != &'\n') // TODO: document this filtering
+                .take_while(|c| c != &'\n')
                 .collect(),
         );
         Ok(())
     }
 
+    /// Creates properly configured [Interval] that ticks at Block's rate.
+    ///
+    /// If upon creation `interval` was set to `None` (meaning no refreshment)
+    /// this method will return `None` as well.
+    ///
+    /// # Example
+    /// ```
+    /// use asyncdwmblocks::blocks::Block;
+    ///
+    /// # use std::time::Duration;
+    /// # async fn async_main() {
+    /// let date = Block::new("date".into(), "date".into(), vec![], Some(60));
+    /// let message = Block::new("hello_message".into(), "echo".into(), vec!["Hello!".into()], None);
+    ///
+    /// assert_eq!(date.get_scheduler().unwrap().period(), Duration::from_secs(60));
+    /// assert!(message.get_scheduler().is_none());
+    /// # }
+    /// ```
     pub fn get_scheduler(&self) -> Option<Interval> {
         let mut scheduler = interval(self.interval?);
         scheduler.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
         Some(scheduler)
+    }
+
+    /// Returns reference to a result of a previous computation.
+    /// `None` means that no computation has ever been completed.
+    pub fn result(&self) -> &Option<String> {
+        &self.result
     }
 }
 
@@ -339,6 +400,19 @@ mod tests {
         assert_eq!(echo.result, None);
         echo.run().await.expect("Failed to run command.");
         assert_eq!(echo.result, Some("ECHO".to_string()));
+    }
+
+    #[tokio::test]
+    async fn block_run_multiple_lines() {
+        let mut echo = Block::new(
+            "echo-test".to_string(),
+            "echo".to_string(),
+            vec!["LINE1\nLINE2".to_string()],
+            None,
+        );
+        assert_eq!(echo.result, None);
+        echo.run().await.expect("Failed to run command.");
+        assert_eq!(echo.result, Some("LINE1".to_string()));
     }
 
     #[test]
