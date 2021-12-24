@@ -149,7 +149,7 @@ impl Block {
             id,
             command,
             args,
-            interval: interval.map(|i| Duration::from_secs(i)),
+            interval: interval.map(Duration::from_secs),
             result: None,
         }
     }
