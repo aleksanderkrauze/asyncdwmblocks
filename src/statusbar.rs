@@ -9,12 +9,34 @@ use futures::future::join_all;
 
 use crate::block::Block;
 
+/// This struct represents an error that happened during creation of [`StatusBar`].
+///
+/// this struct contains informations about repeated ids, that could be treated as
+/// warning or hard error. It provides a method [recover](StatusBarCreationError::recover)
+/// that allows to get `StatusBar` from this error as if every `Block` had a unique id.
+/// If there are multiple blocks with identical id, then only first one of them is preserved.
+///
+/// # Example
+/// ```
+/// use asyncdwmblocks::block::Block;
+/// use asyncdwmblocks::statusbar::StatusBar;
+///
+/// # fn main() {
+/// let b1 = Block::new("test".into(), "".into(), vec![], None);
+/// let b2 = Block::new("test".into(), "".into(), vec![], None);
+///
+/// let statusbar = StatusBar::new(vec![b1, b2], " ".into());
+/// assert!(statusbar.is_err());
+/// let statusbar = statusbar.unwrap_err().recover();
+/// # }
+/// ```
 #[derive(Debug)]
 pub struct StatusBarCreationError {
     blocks: StatusBar,
     errors: HashMap<String, usize>,
 }
 
+/// Consumes `self` and returns `StatusBar` with `Block`s that have a unique id.
 impl StatusBarCreationError {
     pub fn recover(self) -> StatusBar {
         self.blocks
@@ -24,8 +46,7 @@ impl StatusBarCreationError {
 impl fmt::Display for StatusBarCreationError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut msg =
-            "Each block has to have a unique identifier, but some of them were identical:\n"
-                .to_string();
+            "Each block has to have a unique id, but some of them were identical:\n".to_string();
         for (id, num) in &self.errors {
             msg.push_str(&format!("Identifier `{}` occurs {} times\n", id, num));
         }
@@ -36,6 +57,13 @@ impl fmt::Display for StatusBarCreationError {
 
 impl Error for StatusBarCreationError {}
 
+/// This struct represents a status bar.
+///
+/// `StatusBar` is a collection of `Block`s that can refresh them at
+/// their interval and also listen to incoming requests to refresh
+/// specific block. Each `Block` must have a unique id, witch is checked
+/// at the moment of creation. It has also a delimiter, that is put
+/// between each pair of adjacent blocks.
 #[derive(Debug, PartialEq)]
 pub struct StatusBar {
     blocks: Vec<Block>,
@@ -43,6 +71,23 @@ pub struct StatusBar {
 }
 
 impl StatusBar {
+    /// Creates new `StatusBar` from vector of `Block`s.
+    /// Returns `Ok` on success and `Err` if some blocks have unique id.
+    ///
+    /// # Example
+    /// ```
+    /// use asyncdwmblocks::block::Block;
+    /// use asyncdwmblocks::statusbar::StatusBar;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let battery = Block::new("battery".into(), "my_battery_script".into(), vec![], Some(60));
+    /// let datetime = Block::new("datetime".into(), "my_daterime_script".into(), vec![], Some(60));
+    /// let info = Block::new("info".into(), "echo".into(), vec!["asyncdwmblocks".into()], None);
+    ///
+    /// let statusbar = StatusBar::new(vec![battery, datetime, info], " ".into())?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(blocks: Vec<Block>, delimiter: String) -> Result<Self, StatusBarCreationError> {
         let mut duplicates = false;
         let mut errors: HashMap<String, usize> = HashMap::new();
@@ -77,6 +122,11 @@ impl StatusBar {
         }
     }
 
+    /// Collects `Block`s results and concatenates them into String.
+    ///
+    /// If `Block`s result is `None` then this block is skipped.
+    /// If non of the blocks executed it's command and empty String
+    /// is returned.
     pub fn get_status_bar(&self) -> String {
         self.blocks
             .iter()
@@ -91,6 +141,7 @@ impl StatusBar {
             .unwrap_or_default()
     }
 
+    /// Initialises all `Block`s by awaiting completion of [running](Block::run) them.
     pub async fn init(&mut self) {
         let futures = self.blocks.iter_mut().map(|b| b.run()).collect::<Vec<_>>();
 
@@ -99,6 +150,7 @@ impl StatusBar {
 }
 
 impl Default for StatusBar {
+    /// Creates `StatusBar` with no blocks and a single space delimiter.
     fn default() -> Self {
         Self {
             blocks: Vec::default(),
