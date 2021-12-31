@@ -159,7 +159,7 @@ impl StatusBar {
     /// ```
     pub async fn run(&mut self, sender: mpsc::Sender<String>, mut reload: mpsc::Receiver<String>) {
         self.init().await;
-        if let Err(_) = sender.send(self.get_status_bar()).await {
+        if sender.send(self.get_status_bar()).await.is_err() {
             // Receiving channel was closed, so there is no point
             // in sending new messages. Quit run.
             return;
@@ -168,9 +168,8 @@ impl StatusBar {
         let (schedulers_sender, mut schedulers_receiver) = mpsc::channel::<usize>(8);
         self.blocks
             .iter()
-            .map(|b| b.get_scheduler())
-            .filter(|s| s.is_some())
-            .map(|s| s.unwrap())
+            .map(Block::get_scheduler)
+            .flatten()
             .enumerate()
             .for_each(|(i, mut s)| {
                 let schedulers_sender = schedulers_sender.clone();
@@ -178,7 +177,7 @@ impl StatusBar {
                     loop {
                         s.tick().await;
 
-                        if let Err(_) = schedulers_sender.send(i).await {
+                        if schedulers_sender.send(i).await.is_err() {
                             // receiver channel dropped or closed, so we finish as well
                             break;
                         }
@@ -208,7 +207,7 @@ impl StatusBar {
                             // Ignore errors
                             let _ = block.run().await;
 
-                            if let Err(_) = sender.send(self.get_status_bar()).await {
+                            if sender.send(self.get_status_bar()).await.is_err() {
                                 // Receiving channel was closed, so there is no point
                                 // in sending new messages. Quit run.
                                 return;
@@ -224,7 +223,7 @@ impl StatusBar {
                             // Ignore errors
                             let _ = block.run().await;
 
-                            if let Err(_) = sender.send(self.get_status_bar()).await {
+                            if sender.send(self.get_status_bar()).await.is_err() {
                                 // Receiving channel was closed, so there is no point
                                 // in sending new messages. Quit run.
                                 return;
