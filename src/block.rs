@@ -6,7 +6,7 @@ use std::fmt;
 use tokio::process::Command;
 use tokio::sync::oneshot;
 use tokio::task;
-use tokio::time::{interval, Duration, Interval, MissedTickBehavior};
+use tokio::time::{interval_at, Duration, Instant, Interval, MissedTickBehavior};
 
 /// Error that may occur when running (and awaiting) [Block::run].
 ///
@@ -228,7 +228,8 @@ impl Block {
     /// # }
     /// ```
     pub fn get_scheduler(&self) -> Option<Interval> {
-        let mut scheduler = interval(self.interval?);
+        let interval = self.interval?;
+        let mut scheduler = interval_at(Instant::now() + interval, interval);
         scheduler.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
         Some(scheduler)
@@ -248,14 +249,19 @@ impl Block {
 
 #[cfg(test)]
 impl Block {
-    pub fn set_result(&mut self, result: Option<String>) {
+    pub(crate) fn set_result(&mut self, result: Option<String>) {
         self.result = result;
+    }
+
+    pub(crate) fn get_interval(&self) -> Option<Duration> {
+        self.interval
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::time::timeout_at;
 
     #[tokio::test]
     async fn block_run_error_types() {
@@ -301,5 +307,35 @@ mod tests {
         assert_eq!(echo.result, None);
         echo.run().await.expect("Failed to run command.");
         assert_eq!(echo.result, Some("LINE1".to_string()));
+    }
+
+    #[tokio::test]
+    async fn run_test_blocking() {
+        let mut block = Block::new("".into(), "sleep".into(), vec!["1".into()], None);
+
+        let timeout = timeout_at(Instant::now() + Duration::from_millis(10), block.run()).await;
+        assert!(timeout.is_err());
+
+        let timeout = timeout_at(
+            Instant::now() + Duration::from_secs(1) + Duration::from_millis(10),
+            block.run(),
+        )
+        .await;
+        assert!(timeout.is_ok());
+    }
+
+    #[tokio::test]
+    async fn block_get_scheduler() {
+        let block = Block::new("".into(), "".into(), vec![], Some(1));
+        let mut scheduler = block.get_scheduler().unwrap();
+
+        let timeout =
+            timeout_at(Instant::now() + Duration::from_millis(10), scheduler.tick()).await;
+
+        assert!(timeout.is_err());
+
+        let timeout = timeout_at(Instant::now() + Duration::from_secs(1), scheduler.tick()).await;
+
+        assert!(timeout.is_ok());
     }
 }

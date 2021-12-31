@@ -6,6 +6,7 @@ use std::error::Error;
 use std::fmt;
 
 use futures::future::join_all;
+use tokio::sync::mpsc;
 
 use crate::block::Block;
 
@@ -124,12 +125,125 @@ impl StatusBar {
         }
     }
 
+    /// Starts executing blocks asynchronously and sending results through a channel.
+    ///
+    /// This function requires two channel pairs to be created. One to send results of
+    /// a status bar computation (**sender**) and the other to signal reloading specific
+    /// block (**reload**). This function can possibly run to infinity
+    /// (if there is at least one block with `Some` interval) and so it should be either
+    /// spawned as a separate task, or should be placed at the end of method call.
+    ///
+    /// # Example
+    /// ```
+    /// use tokio::sync::mpsc;
+    ///
+    /// use asyncdwmblocks::block::Block;
+    /// use asyncdwmblocks::statusbar::StatusBar;
+    ///
+    /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let b = Block::new("date_block".into(), "date".into(), vec![], Some(60));
+    /// let mut status_bar = StatusBar::new(vec![b], " ".into())?;
+    ///
+    /// let (result_sender, mut result_receiver) = mpsc::channel(8);
+    /// let (reload_sender, reload_receiver) = mpsc::channel(8);
+    ///
+    /// tokio::spawn(async move {
+    ///     status_bar.run(result_sender, reload_receiver).await;
+    /// });
+    ///
+    /// while let Some(_) = result_receiver.recv().await {
+    ///  // do stuff
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn run(&mut self, sender: mpsc::Sender<String>, mut reload: mpsc::Receiver<String>) {
+        self.init().await;
+        if let Err(_) = sender.send(self.get_status_bar()).await {
+            // Receiving channel was closed, so there is no point
+            // in sending new messages. Quit run.
+            return;
+        }
+
+        let (schedulers_sender, mut schedulers_receiver) = mpsc::channel::<usize>(8);
+        self.blocks
+            .iter()
+            .map(|b| b.get_scheduler())
+            .filter(|s| s.is_some())
+            .map(|s| s.unwrap())
+            .enumerate()
+            .for_each(|(i, mut s)| {
+                let schedulers_sender = schedulers_sender.clone();
+                tokio::spawn(async move {
+                    loop {
+                        s.tick().await;
+
+                        if let Err(_) = schedulers_sender.send(i).await {
+                            // receiver channel dropped or closed, so we finish as well
+                            break;
+                        }
+                    }
+                });
+            });
+        // drop unused sender
+        drop(schedulers_sender);
+
+        let mut reload_finished = false;
+        let mut schedulers_finished = false;
+        // In this loop we await signals to refresh blocks
+        // as well as for custom block reloading using *reload*
+        // and we are sending result through *sender* channel.
+        loop {
+            tokio::select! {
+                r = reload.recv(), if !reload_finished => {
+                    match r {
+                        Some(block_id) => {
+                            let block: &mut Block = match self.get_block_by_name(&block_id) {
+                                Some(block) => block,
+                                None => {
+                                    // For now ignore error and just continue
+                                    continue;
+                                }
+                            };
+                            // Ignore errors
+                            let _ = block.run().await;
+
+                            if let Err(_) = sender.send(self.get_status_bar()).await {
+                                // Receiving channel was closed, so there is no point
+                                // in sending new messages. Quit run.
+                                return;
+                            }
+                        }
+                        None => reload_finished = true
+                    }
+                }
+                s = schedulers_receiver.recv(), if !schedulers_finished => {
+                    match s {
+                        Some(block_index) => {
+                            let block: &mut Block = &mut self.blocks[block_index];
+                            // Ignore errors
+                            let _ = block.run().await;
+
+                            if let Err(_) = sender.send(self.get_status_bar()).await {
+                                // Receiving channel was closed, so there is no point
+                                // in sending new messages. Quit run.
+                                return;
+                            }
+                        }
+                        None => schedulers_finished = true
+                    }
+                }
+                else => break
+            };
+        }
+    }
+
     /// Collects `Block`s results and concatenates them into String.
     ///
     /// If `Block`s result is `None` then this block is skipped.
     /// If non of the blocks executed it's command and empty String
     /// is returned.
-    pub fn get_status_bar(&self) -> String {
+    fn get_status_bar(&mut self) -> String {
         let mut blocks = self
             .blocks
             .iter()
@@ -154,14 +268,19 @@ impl StatusBar {
         });
 
         buffer.shrink_to_fit();
+        self.buff_size = Some(buffer.len());
         buffer
     }
 
     /// Initialises all `Block`s by awaiting completion of [running](Block::run) them.
-    pub async fn init(&mut self) {
-        let futures = self.blocks.iter_mut().map(|b| b.run()).collect::<Vec<_>>();
+    async fn init(&mut self) {
+        let futures: Vec<_> = self.blocks.iter_mut().map(Block::run).collect();
 
         let _ = join_all(futures).await;
+    }
+
+    fn get_block_by_name(&mut self, name: &str) -> Option<&mut Block> {
+        self.blocks.iter_mut().find(|b| b.id() == name)
     }
 }
 
@@ -181,6 +300,7 @@ mod tests {
     use super::*;
     use chrono::{DateTime, Utc};
     use std::time::SystemTime;
+    use tokio::time::{sleep, timeout_at, Duration, Instant};
 
     fn setup_blocks_for_get_status_bar(delimiter: &str, data: Vec<Option<&str>>) -> StatusBar {
         let blocks: Vec<Block> = data
@@ -202,26 +322,27 @@ mod tests {
 
     #[test]
     fn statusbar_get_status_bar() {
-        let statusbar =
+        let mut statusbar =
             setup_blocks_for_get_status_bar(" ", vec![Some("A"), Some("B b B"), None, Some("D--")]);
         assert_eq!(String::from("A B b B D--"), statusbar.get_status_bar());
     }
 
     #[test]
     fn statusbar_get_status_bar_empty() {
-        let statusbar = StatusBar::default();
+        let mut statusbar = StatusBar::default();
         assert_eq!(String::from(""), statusbar.get_status_bar());
     }
 
     #[test]
     fn statusbar_get_status_bar_all_none() {
-        let statusbar = setup_blocks_for_get_status_bar(" ", vec![None, None, None, None, None]);
+        let mut statusbar =
+            setup_blocks_for_get_status_bar(" ", vec![None, None, None, None, None]);
         assert_eq!(String::from(""), statusbar.get_status_bar());
     }
 
     #[test]
     fn statusbar_get_status_bar_emojis() {
-        let statusbar = setup_blocks_for_get_status_bar(
+        let mut statusbar = setup_blocks_for_get_status_bar(
             " | ",
             vec![Some("🔋 50%"), Some("📅 01/01/2022"), Some("🕒 12:00")],
         );
@@ -313,6 +434,174 @@ mod tests {
         assert_eq!(
             statusbar.get_status_bar(),
             format!("{} | asyncdwmblocks v1", current_date)
+        );
+    }
+
+    #[test]
+    fn get_block_by_name() {
+        let b1 = Block::new("name1".into(), "".into(), vec![], Some(1));
+        let b2 = Block::new("name2".into(), "".into(), vec![], Some(2));
+
+        let mut status_bar = StatusBar::new(vec![b1, b2], " ".into()).unwrap();
+
+        let b1 = status_bar.get_block_by_name("name1");
+        assert!(b1.is_some());
+        let b1 = b1.unwrap();
+        assert_eq!(b1.get_interval(), Some(Duration::from_secs(1)));
+
+        let b2 = status_bar.get_block_by_name("name2");
+        assert!(b2.is_some());
+        let b2 = b2.unwrap();
+        assert_eq!(b2.get_interval(), Some(Duration::from_secs(2)));
+
+        let none = status_bar.get_block_by_name("non_existing_id");
+        assert!(none.is_none());
+    }
+
+    #[tokio::test]
+    async fn run_intervals() {
+        let b = Block::new("epoch".into(), "date".into(), vec!["+%s".into()], Some(1));
+        let mut status_bar = StatusBar::new(vec![b], "".into()).unwrap();
+
+        let (result_sender, mut result_receiver) = mpsc::channel(8);
+        let (_, reload_receiver) = mpsc::channel(8);
+
+        tokio::spawn(async move {
+            status_bar.run(result_sender, reload_receiver).await;
+        });
+
+        // initial run
+        let _ = result_receiver.recv().await;
+
+        let result = timeout_at(
+            Instant::now() + Duration::from_millis(10),
+            result_receiver.recv(),
+        )
+        .await;
+
+        assert!(result.is_err());
+
+        let result = timeout_at(
+            Instant::now() + Duration::from_secs(1) + Duration::from_millis(10),
+            result_receiver.recv(),
+        )
+        .await;
+
+        assert!(result.is_ok());
+        let result = result.unwrap();
+        assert!(result.is_some());
+    }
+
+    #[tokio::test]
+    async fn run_intervals_reload() {
+        let b = Block::new("epoch".into(), "date".into(), vec!["+%s".into()], None);
+        let mut status_bar = StatusBar::new(vec![b], "".into()).unwrap();
+
+        let (result_sender, mut result_receiver) = mpsc::channel(8);
+        let (reload_sender, reload_receiver) = mpsc::channel(8);
+
+        tokio::spawn(async move {
+            status_bar.run(result_sender, reload_receiver).await;
+        });
+
+        // initial run
+        let _ = result_receiver.recv().await;
+
+        let timeout = timeout_at(
+            Instant::now() + Duration::from_millis(10),
+            result_receiver.recv(),
+        )
+        .await;
+        assert!(timeout.is_err());
+
+        reload_sender.send("epoch".into()).await.unwrap();
+        let timeout = timeout_at(
+            Instant::now() + Duration::from_millis(10),
+            result_receiver.recv(),
+        )
+        .await;
+        assert!(timeout.is_ok());
+
+        // test closing channels
+        drop(reload_sender);
+        let result = result_receiver.recv().await;
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn run_intervals_channel_on_task() {
+        let b = Block::new("epoch".into(), "date".into(), vec!["+%s".into()], None);
+        let mut status_bar = StatusBar::new(vec![b], "".into()).unwrap();
+
+        let (result_sender, mut result_receiver) = mpsc::channel(8);
+        let (reload_sender, reload_receiver) = mpsc::channel(8);
+
+        tokio::spawn(async move {
+            // initial run
+            let _ = result_receiver.recv().await;
+
+            let timeout = timeout_at(
+                Instant::now() + Duration::from_millis(10),
+                result_receiver.recv(),
+            )
+            .await;
+            assert!(timeout.is_err());
+
+            reload_sender.send("epoch".into()).await.unwrap();
+            let timeout = timeout_at(
+                Instant::now() + Duration::from_millis(10),
+                result_receiver.recv(),
+            )
+            .await;
+            assert!(timeout.is_ok());
+        });
+
+        let timeout = timeout_at(
+            Instant::now() + Duration::from_millis(30),
+            status_bar.run(result_sender, reload_receiver),
+        )
+        .await;
+        assert!(timeout.is_ok());
+    }
+
+    #[tokio::test]
+    async fn run_test_asynchronicity() {
+        // XXX: ~40 seems to be upper throughput limit. Since it is more
+        // than enough for real world use I will leave it as it is for now.
+        // Maybe later I will try to figure out if there is something I am
+        // doing wrong and try to fix/optimize it.
+        const NUM: usize = 40;
+
+        let blocks: Vec<Block> = (0..NUM)
+            .map(|i| {
+                Block::new(
+                    format!("echo_{}", i),
+                    "echo".into(),
+                    vec![format!("{}", i)],
+                    Some(1),
+                )
+            })
+            .collect();
+        let mut status_bar = StatusBar::new(blocks, " ".into()).unwrap();
+
+        let (result_sender, mut result_receiver) = mpsc::channel(2 * NUM);
+        let (_, reload_receiver) = mpsc::channel(8);
+
+        tokio::spawn(async move {
+            status_bar.run(result_sender, reload_receiver).await;
+        });
+
+        // initial run
+        let _ = result_receiver.recv().await;
+
+        sleep(Duration::from_secs(1) + Duration::from_millis(100)).await;
+
+        assert_eq!(
+            NUM,
+            (0..)
+                .map(|_| result_receiver.try_recv())
+                .take_while(|r| r.is_ok())
+                .count()
         );
     }
 }
