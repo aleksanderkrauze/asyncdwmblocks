@@ -31,7 +31,7 @@ use crate::block::Block;
 /// let statusbar = statusbar.unwrap_err().recover();
 /// # }
 /// ```
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct StatusBarCreationError {
     blocks: StatusBar,
     errors: HashMap<String, usize>,
@@ -65,7 +65,7 @@ impl Error for StatusBarCreationError {}
 /// specific block. Each `Block` must have a unique id, witch is checked
 /// at the moment of creation. It has also a delimiter, that is put
 /// between each pair of adjacent blocks.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct StatusBar {
     blocks: Vec<Block>,
     delimiter: String,

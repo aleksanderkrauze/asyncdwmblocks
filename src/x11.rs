@@ -17,7 +17,7 @@ const NULL: *const c_char = std::ptr::null::<c_char>();
 ///
 /// Every variant holds a String with user-friendly error
 /// description message.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum X11ConnectionError {
     /// Opening [Xlib] failed
     XlibOpenError(String),

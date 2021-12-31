@@ -120,7 +120,7 @@ impl BlockRunError {
 // we can't get past result while we are await current computation?
 
 /// This struct represents single status bar block.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Block {
     id: String,
     command: String,
