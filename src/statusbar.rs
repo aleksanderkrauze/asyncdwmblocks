@@ -8,7 +8,7 @@ use std::fmt;
 use futures::future::join_all;
 use tokio::sync::mpsc;
 
-use crate::block::Block;
+use crate::block::{Block, BlockRunMode};
 
 /// This struct represents an error that happened during creation of [`StatusBar`].
 ///
@@ -57,6 +57,26 @@ impl fmt::Display for StatusBarCreationError {
 }
 
 impl Error for StatusBarCreationError {}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct BlockRefreshMessge {
+    name: String,
+    mode: BlockRunMode,
+}
+
+impl BlockRefreshMessge {
+    pub fn new(name: String, mode: BlockRunMode) -> Self {
+        Self { name, mode }
+    }
+
+    pub(self) fn name(&self) -> &String {
+        &self.name
+    }
+
+    pub(self) fn mode(&self) -> &BlockRunMode {
+        &self.mode
+    }
+}
 
 /// This struct represents a status bar.
 ///
@@ -157,7 +177,11 @@ impl StatusBar {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn run(&mut self, sender: mpsc::Sender<String>, mut reload: mpsc::Receiver<String>) {
+    pub async fn run(
+        &mut self,
+        sender: mpsc::Sender<String>,
+        mut reload: mpsc::Receiver<BlockRefreshMessge>,
+    ) {
         self.init().await;
         if sender.send(self.get_status_bar()).await.is_err() {
             // Receiving channel was closed, so there is no point
@@ -196,8 +220,8 @@ impl StatusBar {
             tokio::select! {
                 r = reload.recv(), if !reload_finished => {
                     match r {
-                        Some(block_id) => {
-                            let block: &mut Block = match self.get_block_by_name(&block_id) {
+                        Some(message) => {
+                            let block: &mut Block = match self.get_block_by_name(message.name()) {
                                 Some(block) => block,
                                 None => {
                                     // For now ignore error and just continue
@@ -205,7 +229,7 @@ impl StatusBar {
                                 }
                             };
                             // Ignore errors
-                            let _ = block.run().await;
+                            let _ = block.run(message.mode().clone()).await;
 
                             if sender.send(self.get_status_bar()).await.is_err() {
                                 // Receiving channel was closed, so there is no point
@@ -221,7 +245,7 @@ impl StatusBar {
                         Some(block_index) => {
                             let block: &mut Block = &mut self.blocks[block_index];
                             // Ignore errors
-                            let _ = block.run().await;
+                            let _ = block.run(BlockRunMode::Normal).await;
 
                             if sender.send(self.get_status_bar()).await.is_err() {
                                 // Receiving channel was closed, so there is no point
@@ -273,7 +297,11 @@ impl StatusBar {
 
     /// Initialises all `Block`s by awaiting completion of [running](Block::run) them.
     async fn init(&mut self) {
-        let futures: Vec<_> = self.blocks.iter_mut().map(Block::run).collect();
+        let futures: Vec<_> = self
+            .blocks
+            .iter_mut()
+            .map(|b| b.run(BlockRunMode::Normal))
+            .collect();
 
         let _ = join_all(futures).await;
     }
@@ -513,7 +541,13 @@ mod tests {
         .await;
         assert!(timeout.is_err());
 
-        reload_sender.send("epoch".into()).await.unwrap();
+        reload_sender
+            .send(BlockRefreshMessge::new(
+                "epoch".into(),
+                BlockRunMode::Normal,
+            ))
+            .await
+            .unwrap();
         let timeout = timeout_at(
             Instant::now() + Duration::from_millis(10),
             result_receiver.recv(),
@@ -546,7 +580,13 @@ mod tests {
             .await;
             assert!(timeout.is_err());
 
-            reload_sender.send("epoch".into()).await.unwrap();
+            reload_sender
+                .send(BlockRefreshMessge::new(
+                    "epoch".into(),
+                    BlockRunMode::Normal,
+                ))
+                .await
+                .unwrap();
             let timeout = timeout_at(
                 Instant::now() + Duration::from_millis(10),
                 result_receiver.recv(),

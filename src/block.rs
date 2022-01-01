@@ -29,11 +29,11 @@ use tokio::time::{interval_at, Duration, Instant, Interval, MissedTickBehavior};
 ///
 /// # Example
 /// ```
-/// use asyncdwmblocks::block::Block;
-/// # async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
+/// use asyncdwmblocks::block::{Block, BlockRunMode};
 ///
+/// # async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut b = Block::new("battery".into(), "my_battery_script.sh".into(), vec![], Some(60));
-/// match b.run().await {
+/// match b.run(BlockRunMode::Normal).await {
 ///     Ok(_) => {
 ///         // everything is ok.
 ///     }
@@ -116,6 +116,45 @@ impl BlockRunError {
     }
 }
 
+/// This enum represents how block should be run
+/// (should env var `$BUTTON` be set).
+///
+/// `asyncdwmblocks` gives you an ability to make your blocks
+/// behave differently when clicked. This is done by setting
+/// environment variable `$BUTTON` for spawned process by running
+/// a block. You can therefore use this variable in your scripts
+/// and choose different action when clicked with specific mouse button.
+///
+/// # Example
+/// ```
+/// use asyncdwmblocks::block::{Block, BlockRunMode};
+///
+/// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut block = Block::new("date_block".into(), "date_script".into(), vec![], Some(60));
+///
+/// block.run(BlockRunMode::Normal).await?; // run date_script normally
+/// block.run(BlockRunMode::Button(1)).await?; // run date_script and set $BUTTON to 1 (left click)
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Debug, PartialEq, Clone)]
+pub enum BlockRunMode {
+    /// Run [`Block`] normally
+    Normal,
+    /// Run [`Block`] and set `$BUTTON` to inner value
+    Button(u8),
+}
+
+impl BlockRunMode {
+    /// Gets `$BUTTON` number or `None` if self is [BlockRunMode::Normal].
+    pub fn button(&self) -> Option<u8> {
+        match self {
+            BlockRunMode::Button(b) => Some(*b),
+            BlockRunMode::Normal => None,
+        }
+    }
+}
+
 // TODO: If result is &self and run is &mut self does it mean that
 // we can't get past result while we are await current computation?
 
@@ -161,39 +200,41 @@ impl Block {
     ///
     /// This method runs Block's command (with it's args) and returns `Ok(())`
     /// on success and `Err(BlockRunError)` on failure. Consult [it's](BlockRunError)
-    /// documentation for more details.
+    /// documentation for more details. [mode](BlockRunMode) indicates if environment
+    /// variable `$BUTTON` should be set.
     ///
     /// If succeeded it takes characters from command's output (stdout) up to first
     /// newline character and then sets it as a inner result.
     ///
     /// # Example
     /// ```
-    /// use asyncdwmblocks::block::Block;
+    /// use asyncdwmblocks::block::{Block, BlockRunMode};
     ///
     /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
     /// let mut block = Block::new("hello".into(), "echo".into(), vec!["Hello".into()], None);
-    /// block.run().await?;
+    /// block.run(BlockRunMode::Normal).await?;
     ///
     /// assert_eq!(block.result(), &Some(String::from("Hello")));
     /// # Ok(())
     /// # }
     ///
     /// ```
-    pub async fn run(&mut self) -> Result<(), BlockRunError> {
+    pub async fn run(&mut self, mode: BlockRunMode) -> Result<(), BlockRunError> {
         let (sender, receiver) = oneshot::channel();
 
         let command = self.command.clone();
         let args = self.args.clone();
 
-        task::spawn_blocking(move || async {
+        task::spawn_blocking(|| async move {
+            let mut command = Command::new(command);
+            let command = command.args(args);
+            let command = match mode.button() {
+                Some(b) => command.env("BUTTON", b.to_string()),
+                None => command,
+            };
+
             // ignore sending error
-            let _ = sender.send(
-                Command::new(command)
-                    .args(args)
-                    .output()
-                    .await
-                    .map(|o| o.stdout),
-            );
+            let _ = sender.send(command.output().await.map(|o| o.stdout));
         })
         .await?
         .await;
@@ -292,7 +333,9 @@ mod tests {
             None,
         );
         assert_eq!(echo.result, None);
-        echo.run().await.expect("Failed to run command.");
+        echo.run(BlockRunMode::Normal)
+            .await
+            .expect("Failed to run command.");
         assert_eq!(echo.result, Some("ECHO".to_string()));
     }
 
@@ -305,20 +348,39 @@ mod tests {
             None,
         );
         assert_eq!(echo.result, None);
-        echo.run().await.expect("Failed to run command.");
+        echo.run(BlockRunMode::Normal)
+            .await
+            .expect("Failed to run command.");
         assert_eq!(echo.result, Some("LINE1".to_string()));
+    }
+
+    #[tokio::test]
+    async fn run_nonexisting_command() {
+        let mut block = Block::new(
+            "error".into(),
+            "xfewxj1287rxn31xm31rx798321x".into(),
+            vec![],
+            None,
+        );
+        let run = block.run(BlockRunMode::Normal).await;
+        assert!(run.is_err());
+        assert!(run.unwrap_err().is_io());
     }
 
     #[tokio::test]
     async fn run_test_blocking() {
         let mut block = Block::new("".into(), "sleep".into(), vec!["1".into()], None);
 
-        let timeout = timeout_at(Instant::now() + Duration::from_millis(10), block.run()).await;
+        let timeout = timeout_at(
+            Instant::now() + Duration::from_millis(10),
+            block.run(BlockRunMode::Normal),
+        )
+        .await;
         assert!(timeout.is_err());
 
         let timeout = timeout_at(
             Instant::now() + Duration::from_secs(1) + Duration::from_millis(10),
-            block.run(),
+            block.run(BlockRunMode::Normal),
         )
         .await;
         assert!(timeout.is_ok());
