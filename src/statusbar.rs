@@ -267,12 +267,7 @@ impl StatusBar {
     /// If non of the blocks executed it's command and empty String
     /// is returned.
     fn get_status_bar(&mut self) -> String {
-        let mut blocks = self
-            .blocks
-            .iter()
-            .map(|b| b.result())
-            .filter(|r| r.is_some())
-            .map(|r| r.as_ref().unwrap());
+        let mut blocks = self.blocks.iter().map(Block::result).flatten();
 
         let first = blocks.next();
         if first.is_none() {

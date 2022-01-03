@@ -214,7 +214,7 @@ impl Block {
     /// let mut block = Block::new("hello".into(), "echo".into(), vec!["Hello".into()], None);
     /// block.run(BlockRunMode::Normal).await?;
     ///
-    /// assert_eq!(block.result(), &Some(String::from("Hello")));
+    /// assert_eq!(block.result(), Some(&String::from("Hello")));
     /// # Ok(())
     /// # }
     ///
@@ -278,8 +278,8 @@ impl Block {
 
     /// Returns reference to a result of a previous computation.
     /// `None` means that no computation has ever been completed.
-    pub fn result(&self) -> &Option<String> {
-        &self.result
+    pub fn result(&self) -> Option<&String> {
+        self.result.as_ref()
     }
 
     /// Returns reference to Block's id.

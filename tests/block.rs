@@ -10,11 +10,11 @@ async fn run_mode_button() {
     );
 
     block.run(BlockRunMode::Button(1)).await.unwrap();
-    assert_eq!(block.result(), &Some("1".into()));
+    assert_eq!(block.result(), Some(&String::from("1")));
 
     block.run(BlockRunMode::Normal).await.unwrap();
-    assert_eq!(block.result(), &Some("".into()));
+    assert_eq!(block.result(), Some(&String::from("")));
 
     block.run(BlockRunMode::Button(3)).await.unwrap();
-    assert_eq!(block.result(), &Some("3".into()));
+    assert_eq!(block.result(), Some(&String::from("3")));
 }
