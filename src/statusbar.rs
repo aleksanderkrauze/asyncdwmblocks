@@ -11,7 +11,7 @@ use crate::block::{Block, BlockRunMode};
 
 /// This struct represents an error that happened during creation of [`StatusBar`].
 ///
-/// this struct contains informations about repeated ids, that could be treated as
+/// This struct contains informations about repeated ids, that could be treated as
 /// warning or hard error. It provides a method [recover](StatusBarCreationError::recover)
 /// that allows to get `StatusBar` from this error as if every `Block` had a unique id.
 /// If there are multiple blocks with identical id, then only first one of them is preserved.

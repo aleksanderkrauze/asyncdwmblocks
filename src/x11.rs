@@ -105,6 +105,8 @@ impl X11Connection {
     /// As name is converted to [CString] this method will panic
     /// if name contains a null byte.
     pub fn set_root_name(&self, name: &str) {
+        // TODO: check return status of following functions calls and if
+        // updating failed return Err
         let name = CString::new(name).unwrap();
         unsafe {
             (self.xlib.XStoreName)(self.display, self.window, name.as_ptr());
