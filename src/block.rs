@@ -8,6 +8,8 @@ use tokio::sync::oneshot;
 use tokio::task;
 use tokio::time::{interval_at, Duration, Instant, Interval, MissedTickBehavior};
 
+use crate::config::Config;
+
 /// Error that may occur when running (and awaiting) [Block::run].
 ///
 /// While awaiting for `Block::run()` three things could happen wrong:
@@ -30,9 +32,11 @@ use tokio::time::{interval_at, Duration, Instant, Interval, MissedTickBehavior};
 /// # Example
 /// ```
 /// use asyncdwmblocks::block::{Block, BlockRunMode};
+/// use asyncdwmblocks::config::Config;
 ///
 /// # async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut b = Block::new("battery".into(), "my_battery_script.sh".into(), vec![], Some(60));
+/// let config = Config::default();
+/// let mut b = Block::new("battery".into(), "my_battery_script.sh".into(), vec![], Some(60), &config);
 /// match b.run(BlockRunMode::Normal).await {
 ///     Ok(_) => {
 ///         // everything is ok.
@@ -128,9 +132,11 @@ impl BlockRunError {
 /// # Example
 /// ```
 /// use asyncdwmblocks::block::{Block, BlockRunMode};
+/// use asyncdwmblocks::config::Config;
 ///
 /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut block = Block::new("date_block".into(), "date_script".into(), vec![], Some(60));
+/// let config = Config::default();
+/// let mut block = Block::new("date_block".into(), "date_script".into(), vec![], Some(60), &config);
 ///
 /// block.run(BlockRunMode::Normal).await?; // run date_script normally
 /// block.run(BlockRunMode::Button(1)).await?; // run date_script and set $BUTTON to 1 (left click)
@@ -160,15 +166,16 @@ impl BlockRunMode {
 
 /// This struct represents single status bar block.
 #[derive(Debug, PartialEq, Clone)]
-pub struct Block {
+pub struct Block<'c> {
     id: String,
     command: String,
     args: Vec<String>,
     interval: Option<Duration>,
     result: Option<String>,
+    config: &'c Config,
 }
 
-impl Block {
+impl<'c> Block<'c> {
     /// Creates a new `Block`.
     ///
     /// Required arguments have following meaning:
@@ -178,11 +185,18 @@ impl Block {
     ///  - `interval`: at witch rate (in seconds) this block should reload.
     ///  If `None` then it won't be automatically reload (but still can be by sending
     ///  proper signal to status bar)
+    ///  - `config`: a reference to a global configuration
     ///
     ///  # Panics
     ///  If `interval` is `Some`, then it must be greater than 0. Interval with value
     ///  `Some(0)` will panic.
-    pub fn new(id: String, command: String, args: Vec<String>, interval: Option<u64>) -> Self {
+    pub fn new(
+        id: String,
+        command: String,
+        args: Vec<String>,
+        interval: Option<u64>,
+        config: &'c Config,
+    ) -> Self {
         // TODO: make new accept Cows instead of Strings.
         if interval.is_some() {
             assert!(interval > Some(0), "Interval must be at least 1 second.");
@@ -193,6 +207,7 @@ impl Block {
             args,
             interval: interval.map(Duration::from_secs),
             result: None,
+            config,
         }
     }
 
@@ -209,9 +224,11 @@ impl Block {
     /// # Example
     /// ```
     /// use asyncdwmblocks::block::{Block, BlockRunMode};
+    /// use asyncdwmblocks::config::Config;
     ///
     /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let mut block = Block::new("hello".into(), "echo".into(), vec!["Hello".into()], None);
+    /// let config = Config::default();
+    /// let mut block = Block::new("hello".into(), "echo".into(), vec!["Hello".into()], None, &config);
     /// block.run(BlockRunMode::Normal).await?;
     ///
     /// assert_eq!(block.result(), Some(&String::from("Hello")));
@@ -225,11 +242,12 @@ impl Block {
         let command = self.command.clone();
         let args = self.args.clone();
 
+        let button_env_variable = self.config.button_env_variable.clone();
         task::spawn_blocking(|| async move {
             let mut command = Command::new(command);
             let command = command.args(args);
             let command = match mode.button() {
-                Some(b) => command.env("BUTTON", b.to_string()),
+                Some(b) => command.env(button_env_variable, b.to_string()),
                 None => command,
             };
 
@@ -258,11 +276,13 @@ impl Block {
     /// # Example
     /// ```
     /// use asyncdwmblocks::block::Block;
+    /// use asyncdwmblocks::config::Config;
     ///
     /// # use std::time::Duration;
     /// # async fn async_main() {
-    /// let date = Block::new("date".into(), "date".into(), vec![], Some(60));
-    /// let message = Block::new("hello_message".into(), "echo".into(), vec!["Hello!".into()], None);
+    /// let config = Config::default();
+    /// let date = Block::new("date".into(), "date".into(), vec![], Some(60), &config);
+    /// let message = Block::new("hello_message".into(), "echo".into(), vec!["Hello!".into()], None, &config);
     ///
     /// assert_eq!(date.get_scheduler().unwrap().period(), Duration::from_secs(60));
     /// assert!(message.get_scheduler().is_none());
@@ -289,7 +309,7 @@ impl Block {
 }
 
 #[cfg(test)]
-impl Block {
+impl Block<'_> {
     pub(crate) fn set_result(&mut self, result: Option<String>) {
         self.result = result;
     }
@@ -326,11 +346,13 @@ mod tests {
 
     #[tokio::test]
     async fn block_run() {
+        let config = Config::default();
         let mut echo = Block::new(
             "echo-test".to_string(),
             "echo".to_string(),
             vec!["ECHO".to_string()],
             None,
+            &config,
         );
         assert_eq!(echo.result, None);
         echo.run(BlockRunMode::Normal)
@@ -341,11 +363,13 @@ mod tests {
 
     #[tokio::test]
     async fn block_run_multiple_lines() {
+        let config = Config::default();
         let mut echo = Block::new(
             "echo-test".to_string(),
             "echo".to_string(),
             vec!["LINE1\nLINE2".to_string()],
             None,
+            &config,
         );
         assert_eq!(echo.result, None);
         echo.run(BlockRunMode::Normal)
@@ -356,11 +380,13 @@ mod tests {
 
     #[tokio::test]
     async fn run_nonexisting_command() {
+        let config = Config::default();
         let mut block = Block::new(
             "error".into(),
             "xfewxj1287rxn31xm31rx798321x".into(),
             vec![],
             None,
+            &config,
         );
         let run = block.run(BlockRunMode::Normal).await;
         assert!(run.is_err());
@@ -369,7 +395,8 @@ mod tests {
 
     #[tokio::test]
     async fn run_test_blocking() {
-        let mut block = Block::new("".into(), "sleep".into(), vec!["1".into()], None);
+        let config = Config::default();
+        let mut block = Block::new("".into(), "sleep".into(), vec!["1".into()], None, &config);
 
         let timeout = timeout_at(
             Instant::now() + Duration::from_millis(10),
@@ -388,7 +415,8 @@ mod tests {
 
     #[tokio::test]
     async fn block_get_scheduler() {
-        let block = Block::new("".into(), "".into(), vec![], Some(1));
+        let config = Config::default();
+        let block = Block::new("".into(), "".into(), vec![], Some(1), &config);
         let mut scheduler = block.get_scheduler().unwrap();
 
         let timeout =

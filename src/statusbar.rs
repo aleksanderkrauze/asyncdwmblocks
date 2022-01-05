@@ -21,10 +21,12 @@ use crate::block::{Block, BlockRunMode};
 /// ```
 /// use asyncdwmblocks::block::Block;
 /// use asyncdwmblocks::statusbar::StatusBar;
+/// use asyncdwmblocks::config::Config;
 ///
 /// # fn main() {
-/// let b1 = Block::new("test".into(), "".into(), vec![], None);
-/// let b2 = Block::new("test".into(), "".into(), vec![], None);
+/// let config = Config::default();
+/// let b1 = Block::new("test".into(), "".into(), vec![], None, &config);
+/// let b2 = Block::new("test".into(), "".into(), vec![], None, &config);
 ///
 /// let statusbar = StatusBar::new(vec![b1, b2], " ".into());
 /// assert!(statusbar.is_err());
@@ -32,19 +34,19 @@ use crate::block::{Block, BlockRunMode};
 /// # }
 /// ```
 #[derive(Debug, PartialEq, Clone)]
-pub struct StatusBarCreationError {
-    blocks: StatusBar,
+pub struct StatusBarCreationError<'c> {
+    blocks: StatusBar<'c>,
     errors: HashMap<String, usize>,
 }
 
 /// Consumes `self` and returns `StatusBar` with `Block`s that have a unique id.
-impl StatusBarCreationError {
-    pub fn recover(self) -> StatusBar {
+impl<'c> StatusBarCreationError<'c> {
+    pub fn recover(self) -> StatusBar<'c> {
         self.blocks
     }
 }
 
-impl fmt::Display for StatusBarCreationError {
+impl fmt::Display for StatusBarCreationError<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut msg =
             "Each block has to have a unique id, but some of them were identical:\n".to_string();
@@ -56,7 +58,7 @@ impl fmt::Display for StatusBarCreationError {
     }
 }
 
-impl Error for StatusBarCreationError {}
+impl Error for StatusBarCreationError<'_> {}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BlockRefreshMessge {
@@ -85,14 +87,20 @@ impl BlockRefreshMessge {
 /// specific block. Each `Block` must have a unique id, witch is checked
 /// at the moment of creation. It has also a delimiter, that is put
 /// between each pair of adjacent blocks.
+///
+/// # Important
+/// `StatusBar` owns `Block`s but they have a reference to a `[Config]`
+/// variable. Because running `StatusBar` may move `Blocks` to different
+/// threads, therefore `Config` **must be owned by the same task** that
+/// owns `StatusBar`.
 #[derive(Debug, PartialEq, Clone)]
-pub struct StatusBar {
-    blocks: Vec<Block>,
+pub struct StatusBar<'c> {
+    blocks: Vec<Block<'c>>,
     delimiter: String,
     buff_size: Option<usize>,
 }
 
-impl StatusBar {
+impl<'c> StatusBar<'c> {
     /// Creates new `StatusBar` from vector of `Block`s.
     /// Returns `Ok` on success and `Err` if some blocks have unique id.
     ///
@@ -100,17 +108,19 @@ impl StatusBar {
     /// ```
     /// use asyncdwmblocks::block::Block;
     /// use asyncdwmblocks::statusbar::StatusBar;
+    /// use asyncdwmblocks::config::Config;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let battery = Block::new("battery".into(), "my_battery_script".into(), vec![], Some(60));
-    /// let datetime = Block::new("datetime".into(), "my_daterime_script".into(), vec![], Some(60));
-    /// let info = Block::new("info".into(), "echo".into(), vec!["asyncdwmblocks".into()], None);
+    /// let config = Config::default();
+    /// let battery = Block::new("battery".into(), "my_battery_script".into(), vec![], Some(60), &config);
+    /// let datetime = Block::new("datetime".into(), "my_daterime_script".into(), vec![], Some(60), &config);
+    /// let info = Block::new("info".into(), "echo".into(), vec!["asyncdwmblocks".into()], None, &config);
     ///
-    /// let statusbar = StatusBar::new(vec![battery, datetime, info], " ".into())?;
+    /// let statusbar = StatusBar::new(vec![battery, datetime, info], " ".into()).unwrap();
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(blocks: Vec<Block>, delimiter: String) -> Result<Self, StatusBarCreationError> {
+    pub fn new(blocks: Vec<Block<'c>>, delimiter: String) -> Result<Self, StatusBarCreationError> {
         let mut duplicates = false;
         let mut errors: HashMap<String, usize> = HashMap::new();
         let filtered_blocks: Vec<Block> = blocks
@@ -159,15 +169,17 @@ impl StatusBar {
     ///
     /// use asyncdwmblocks::block::Block;
     /// use asyncdwmblocks::statusbar::StatusBar;
+    /// use asyncdwmblocks::config::Config;
     ///
     /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let b = Block::new("date_block".into(), "date".into(), vec![], Some(60));
-    /// let mut status_bar = StatusBar::new(vec![b], " ".into())?;
-    ///
     /// let (result_sender, mut result_receiver) = mpsc::channel(8);
     /// let (reload_sender, reload_receiver) = mpsc::channel(8);
     ///
     /// tokio::spawn(async move {
+    ///     let config = Config::default();
+    ///     let b = Block::new("date_block".into(), "date".into(), vec![], Some(60), &config);
+    ///     let mut status_bar = StatusBar::new(vec![b], " ".into()).unwrap();
+    ///
     ///     status_bar.run(result_sender, reload_receiver).await;
     /// });
     ///
@@ -301,12 +313,12 @@ impl StatusBar {
         let _ = join_all(futures).await;
     }
 
-    fn get_block_by_name(&mut self, name: &str) -> Option<&mut Block> {
+    fn get_block_by_name(&mut self, name: &str) -> Option<&mut Block<'c>> {
         self.blocks.iter_mut().find(|b| b.id() == name)
     }
 }
 
-impl Default for StatusBar {
+impl Default for StatusBar<'_> {
     /// Creates `StatusBar` with no blocks and a single space delimiter.
     fn default() -> Self {
         Self {
@@ -320,16 +332,21 @@ impl Default for StatusBar {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::Config;
     use chrono::{DateTime, Utc};
     use std::time::SystemTime;
     use tokio::time::{sleep, timeout_at, Duration, Instant};
 
-    fn setup_blocks_for_get_status_bar(delimiter: &str, data: Vec<Option<&str>>) -> StatusBar {
+    fn setup_blocks_for_get_status_bar<'c>(
+        delimiter: &str,
+        data: Vec<Option<&str>>,
+        config: &'c Config,
+    ) -> StatusBar<'c> {
         let blocks: Vec<Block> = data
             .iter()
             .map(|x| x.map(|x| x.to_string()))
             .map(|x| {
-                let mut block = Block::new("".into(), "".into(), vec![], None);
+                let mut block = Block::new("".into(), "".into(), vec![], None, config);
                 block.set_result(x);
                 block
             })
@@ -344,8 +361,12 @@ mod tests {
 
     #[test]
     fn statusbar_get_status_bar() {
-        let mut statusbar =
-            setup_blocks_for_get_status_bar(" ", vec![Some("A"), Some("B b B"), None, Some("D--")]);
+        let config = Config::default();
+        let mut statusbar = setup_blocks_for_get_status_bar(
+            " ",
+            vec![Some("A"), Some("B b B"), None, Some("D--")],
+            &config,
+        );
         assert_eq!(String::from("A B b B D--"), statusbar.get_status_bar());
     }
 
@@ -357,16 +378,19 @@ mod tests {
 
     #[test]
     fn statusbar_get_status_bar_all_none() {
+        let config = Config::default();
         let mut statusbar =
-            setup_blocks_for_get_status_bar(" ", vec![None, None, None, None, None]);
+            setup_blocks_for_get_status_bar(" ", vec![None, None, None, None, None], &config);
         assert_eq!(String::from(""), statusbar.get_status_bar());
     }
 
     #[test]
     fn statusbar_get_status_bar_emojis() {
+        let config = Config::default();
         let mut statusbar = setup_blocks_for_get_status_bar(
             " | ",
             vec![Some("🔋 50%"), Some("📅 01/01/2022"), Some("🕒 12:00")],
+            &config,
         );
         assert_eq!(
             String::from("🔋 50% | 📅 01/01/2022 | 🕒 12:00"),
@@ -383,10 +407,11 @@ mod tests {
 
     #[test]
     fn statusbar_new_ok() {
+        let config = Config::default();
         let data = vec![
-            Block::new("battery".into(), "".into(), vec![], None),
-            Block::new("date".into(), "".into(), vec![], None),
-            Block::new("time".into(), "".into(), vec![], None),
+            Block::new("battery".into(), "".into(), vec![], None, &config),
+            Block::new("date".into(), "".into(), vec![], None, &config),
+            Block::new("time".into(), "".into(), vec![], None, &config),
         ];
         let cloned_data = data.clone();
 
@@ -397,18 +422,19 @@ mod tests {
 
     #[test]
     fn statusbar_new_err() {
+        let config = Config::default();
         let data = vec![
-            Block::new("battery".into(), "".into(), vec![], None),
-            Block::new("date".into(), "".into(), vec![], None),
-            Block::new("date".into(), "".into(), vec![], None),
-            Block::new("time".into(), "".into(), vec![], None),
-            Block::new("time".into(), "".into(), vec![], None),
-            Block::new("time".into(), "".into(), vec![], None),
+            Block::new("battery".into(), "".into(), vec![], None, &config),
+            Block::new("date".into(), "".into(), vec![], None, &config),
+            Block::new("date".into(), "".into(), vec![], None, &config),
+            Block::new("time".into(), "".into(), vec![], None, &config),
+            Block::new("time".into(), "".into(), vec![], None, &config),
+            Block::new("time".into(), "".into(), vec![], None, &config),
         ];
         let unique_data = vec![
-            Block::new("battery".into(), "".into(), vec![], None),
-            Block::new("date".into(), "".into(), vec![], None),
-            Block::new("time".into(), "".into(), vec![], None),
+            Block::new("battery".into(), "".into(), vec![], None, &config),
+            Block::new("date".into(), "".into(), vec![], None, &config),
+            Block::new("time".into(), "".into(), vec![], None, &config),
         ];
         let expected_errors: HashMap<String, usize> = vec![("date".into(), 2), ("time".into(), 3)]
             .into_iter()
@@ -432,6 +458,7 @@ mod tests {
 
     #[tokio::test]
     async fn statusbar_init() {
+        let config = Config::default();
         // Flag -u sets UTC standard. Since this is what we are comparing
         // this must be set, or this test will fail around midnight.
         let date_block = Block::new(
@@ -439,12 +466,14 @@ mod tests {
             "date".into(),
             vec!["-u".into(), "+%d/%m/%Y".into()],
             None,
+            &config,
         );
         let info_block = Block::new(
             "info".into(),
             "echo".into(),
             vec!["asyncdwmblocks v1".into()],
             None,
+            &config,
         );
 
         let current_date: DateTime<Utc> = DateTime::from(SystemTime::now());
@@ -461,8 +490,9 @@ mod tests {
 
     #[test]
     fn get_block_by_name() {
-        let b1 = Block::new("name1".into(), "".into(), vec![], Some(1));
-        let b2 = Block::new("name2".into(), "".into(), vec![], Some(2));
+        let config = Config::default();
+        let b1 = Block::new("name1".into(), "".into(), vec![], Some(1), &config);
+        let b2 = Block::new("name2".into(), "".into(), vec![], Some(2), &config);
 
         let mut status_bar = StatusBar::new(vec![b1, b2], " ".into()).unwrap();
 
@@ -482,13 +512,19 @@ mod tests {
 
     #[tokio::test]
     async fn run_intervals() {
-        let b = Block::new("epoch".into(), "date".into(), vec!["+%s".into()], Some(1));
-        let mut status_bar = StatusBar::new(vec![b], "".into()).unwrap();
-
         let (result_sender, mut result_receiver) = mpsc::channel(8);
         let (_, reload_receiver) = mpsc::channel(8);
 
         tokio::spawn(async move {
+            let config = Config::default();
+            let b = Block::new(
+                "epoch".into(),
+                "date".into(),
+                vec!["+%s".into()],
+                Some(1),
+                &config,
+            );
+            let mut status_bar = StatusBar::new(vec![b], "".into()).unwrap();
             status_bar.run(result_sender, reload_receiver).await;
         });
 
@@ -516,13 +552,19 @@ mod tests {
 
     #[tokio::test]
     async fn run_intervals_reload() {
-        let b = Block::new("epoch".into(), "date".into(), vec!["+%s".into()], None);
-        let mut status_bar = StatusBar::new(vec![b], "".into()).unwrap();
-
         let (result_sender, mut result_receiver) = mpsc::channel(8);
         let (reload_sender, reload_receiver) = mpsc::channel(8);
 
         tokio::spawn(async move {
+            let config = Config::default();
+            let b = Block::new(
+                "epoch".into(),
+                "date".into(),
+                vec!["+%s".into()],
+                None,
+                &config,
+            );
+            let mut status_bar = StatusBar::new(vec![b], "".into()).unwrap();
             status_bar.run(result_sender, reload_receiver).await;
         });
 
@@ -558,7 +600,14 @@ mod tests {
 
     #[tokio::test]
     async fn run_intervals_channel_on_task() {
-        let b = Block::new("epoch".into(), "date".into(), vec!["+%s".into()], None);
+        let config = Config::default();
+        let b = Block::new(
+            "epoch".into(),
+            "date".into(),
+            vec!["+%s".into()],
+            None,
+            &config,
+        );
         let mut status_bar = StatusBar::new(vec![b], "".into()).unwrap();
 
         let (result_sender, mut result_receiver) = mpsc::channel(8);
@@ -606,22 +655,23 @@ mod tests {
         // doing wrong and try to fix/optimize it.
         const NUM: usize = 40;
 
-        let blocks: Vec<Block> = (0..NUM)
-            .map(|i| {
-                Block::new(
-                    format!("echo_{}", i),
-                    "echo".into(),
-                    vec![format!("{}", i)],
-                    Some(1),
-                )
-            })
-            .collect();
-        let mut status_bar = StatusBar::new(blocks, " ".into()).unwrap();
-
         let (result_sender, mut result_receiver) = mpsc::channel(2 * NUM);
         let (_, reload_receiver) = mpsc::channel(8);
 
         tokio::spawn(async move {
+            let config = Config::default();
+            let blocks: Vec<Block> = (0..NUM)
+                .map(|i| {
+                    Block::new(
+                        format!("echo_{}", i),
+                        "echo".into(),
+                        vec![format!("{}", i)],
+                        Some(1),
+                        &config,
+                    )
+                })
+                .collect();
+            let mut status_bar = StatusBar::new(blocks, " ".into()).unwrap();
             status_bar.run(result_sender, reload_receiver).await;
         });
 
