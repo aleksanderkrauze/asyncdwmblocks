@@ -89,6 +89,7 @@ impl Listener for TcpListener {
                                 // has already sent termination message and it was enforced.
                                 // So it doesn't matter that we failed.
                                 let _ = cancelation_sender.send(()).await;
+                                break;
                             }
                         }
                         // We do not currently report back weather
