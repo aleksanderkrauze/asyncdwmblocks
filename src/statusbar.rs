@@ -61,12 +61,12 @@ impl fmt::Display for StatusBarCreationError {
 impl Error for StatusBarCreationError {}
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct BlockRefreshMessge {
+pub struct BlockRefreshMessage {
     name: String,
     mode: BlockRunMode,
 }
 
-impl BlockRefreshMessge {
+impl BlockRefreshMessage {
     pub fn new(name: String, mode: BlockRunMode) -> Self {
         Self { name, mode }
     }
@@ -187,7 +187,7 @@ impl StatusBar {
     pub async fn run(
         &mut self,
         sender: mpsc::Sender<String>,
-        mut reload: mpsc::Receiver<BlockRefreshMessge>,
+        mut reload: mpsc::Receiver<BlockRefreshMessage>,
     ) {
         self.init().await;
         if sender.send(self.get_status_bar()).await.is_err() {
@@ -589,7 +589,7 @@ mod tests {
         assert!(timeout.is_err());
 
         reload_sender
-            .send(BlockRefreshMessge::new(
+            .send(BlockRefreshMessage::new(
                 "epoch".into(),
                 BlockRunMode::Normal,
             ))
@@ -635,7 +635,7 @@ mod tests {
             assert!(timeout.is_err());
 
             reload_sender
-                .send(BlockRefreshMessge::new(
+                .send(BlockRefreshMessage::new(
                     "epoch".into(),
                     BlockRunMode::Normal,
                 ))
