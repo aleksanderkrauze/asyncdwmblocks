@@ -19,7 +19,7 @@ use tokio::sync::mpsc;
 ///
 /// # Example
 /// ```
-/// use asyncdwmblocks::pipe::mpsc_pipe_translate;
+/// use asyncdwmblocks::utils::mpsc_pipe_translate;
 /// use tokio::sync::mpsc::channel;
 ///
 /// # #[tokio::main]
