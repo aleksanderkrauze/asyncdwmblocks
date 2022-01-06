@@ -19,20 +19,17 @@ impl<'a> Iterator for SplitAtRN<'a> {
             match self.buff[i] {
                 b'\r' => self.was_last_r = true,
                 b'\n' => {
-                    if self.was_last_r {
-                        // Reset r flag
-                        self.was_last_r = false;
+                    let was_last_r = self.was_last_r;
+                    self.was_last_r = false;
 
+                    if was_last_r {
                         let (left, right) = self.buff.split_at(i);
                         self.buff = &right[1..right.len()];
 
                         let left = &left[0..(left.len() - 1)];
                         return Some(left);
                     }
-                    // Reset r flag
-                    self.was_last_r = false;
                 }
-                // Reset r flag
                 _ => self.was_last_r = false,
             }
         }
