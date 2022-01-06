@@ -1,7 +1,10 @@
+use crate::server::ServerType;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Config {
     pub button_env_variable: String,
     pub tcp_port: u16,
+    pub server_type: ServerType,
 }
 
 impl Default for Config {
@@ -9,6 +12,7 @@ impl Default for Config {
         Self {
             button_env_variable: String::from("BUTTON"),
             tcp_port: 44000,
+            server_type: ServerType::Tcp,
         }
     }
 }

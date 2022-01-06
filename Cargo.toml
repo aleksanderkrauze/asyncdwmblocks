@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 x11-dl = "2.19"
-tokio = { version = "1", features = ["time", "sync", "process", "macros", "rt-multi-thread", "net"] }
+tokio = { version = "1", features = ["time", "sync", "process", "macros", "rt-multi-thread", "net", "io-util"] }
 futures = "0.3"
 async-trait = "0.1.52"
 
