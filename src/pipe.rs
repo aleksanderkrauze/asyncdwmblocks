@@ -48,15 +48,10 @@ pub async fn mpsc_pipe_translate<R, S, T>(
 ) where
     T: Fn(R) -> S,
 {
-    loop {
-        let msg = match receiver.recv().await {
-            Some(msg) => msg,
-            None => break,
-        };
-
+    while let Some(msg) = receiver.recv().await {
         let msg = translate(msg);
 
-        if let Err(_) = sender.send(msg).await {
+        if sender.send(msg).await.is_err() {
             break;
         }
     }
