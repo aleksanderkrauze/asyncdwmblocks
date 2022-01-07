@@ -5,54 +5,54 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::io::AsyncReadExt;
+use tokio::net::TcpListener;
 use tokio::sync::mpsc::{self, Sender};
 
 use crate::config::Config;
 use crate::server::{
     frame::{Frame, Frames},
-    Listener,
+    Server,
 };
 use crate::statusbar::BlockRefreshMessage;
 
 #[derive(Debug)]
-pub enum TcpListenerError {
+pub enum TcpServerError {
     IO(std::io::Error),
 }
 
-impl From<std::io::Error> for TcpListenerError {
+impl From<std::io::Error> for TcpServerError {
     fn from(err: std::io::Error) -> Self {
         Self::IO(err)
     }
 }
 
-impl fmt::Display for TcpListenerError {
+impl fmt::Display for TcpServerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg: String = match self {
-            TcpListenerError::IO(err) => format!("io error: {}", err),
+            TcpServerError::IO(err) => format!("io error: {}", err),
         };
 
         write!(f, "{}", msg)
     }
 }
 
-impl Error for TcpListenerError {}
+impl Error for TcpServerError {}
 
 #[derive(Debug, Clone)]
-pub struct TcpListener {
+pub struct TcpServer {
     config: Arc<Config>,
     sender: Sender<BlockRefreshMessage>,
 }
 
 #[async_trait]
-impl Listener for TcpListener {
-    type Error = TcpListenerError;
+impl Server for TcpServer {
+    type Error = TcpServerError;
     fn new(sender: Sender<BlockRefreshMessage>, config: Arc<Config>) -> Self {
         Self { sender, config }
     }
 
     async fn run(&self) -> Result<(), Self::Error> {
-        let listener =
-            tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, self.config.tcp_port)).await?;
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, self.config.tcp_port)).await?;
         let (cancelation_sender, mut cancelation_receiver) = mpsc::channel::<()>(1);
 
         loop {
@@ -124,7 +124,7 @@ mod tests {
         }
         .arc();
 
-        let listener = TcpListener::new(sender, Arc::clone(&config));
+        let listener = TcpServer::new(sender, Arc::clone(&config));
         tokio::spawn(async move {
             let _ = listener.run().await;
         });

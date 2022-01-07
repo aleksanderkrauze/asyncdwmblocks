@@ -11,7 +11,7 @@ use crate::config::Config;
 use crate::statusbar::BlockRefreshMessage;
 
 #[async_trait]
-pub trait Listener {
+pub trait Server {
     type Error: Error;
     fn new(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>) -> Self;
     async fn run(&self) -> Result<(), Self::Error>;
@@ -30,13 +30,13 @@ pub enum ServerType {
     Tcp,
 }
 
-pub fn get_listener(
-    listener_type: ServerType,
+pub fn get_server(
+    server_type: ServerType,
     sender: mpsc::Sender<BlockRefreshMessage>,
     config: Arc<Config>,
-) -> impl Listener {
-    match listener_type {
-        ServerType::Tcp => tcp::TcpListener::new(sender, config),
+) -> impl Server {
+    match server_type {
+        ServerType::Tcp => tcp::TcpServer::new(sender, config),
     }
 }
 
