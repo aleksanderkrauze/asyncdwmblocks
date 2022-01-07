@@ -7,9 +7,11 @@ use async_trait::async_trait;
 use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc::{self, Sender};
 
-use super::frame::{Frame, Frames};
-use super::Listener;
 use crate::config::Config;
+use crate::server::{
+    frame::{Frame, Frames},
+    Listener,
+};
 use crate::statusbar::BlockRefreshMessage;
 
 #[derive(Debug)]
