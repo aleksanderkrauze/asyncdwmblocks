@@ -62,21 +62,13 @@ impl Error for StatusBarCreationError {}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BlockRefreshMessage {
-    name: String,
-    mode: BlockRunMode,
+    pub name: String,
+    pub mode: BlockRunMode,
 }
 
 impl BlockRefreshMessage {
     pub fn new(name: String, mode: BlockRunMode) -> Self {
         Self { name, mode }
-    }
-
-    pub(self) fn name(&self) -> &String {
-        &self.name
-    }
-
-    pub(self) fn mode(&self) -> &BlockRunMode {
-        &self.mode
     }
 }
 
@@ -228,7 +220,7 @@ impl StatusBar {
                 r = reload.recv(), if !reload_finished => {
                     match r {
                         Some(message) => {
-                            let block: &mut Block = match self.get_block_by_name(message.name()) {
+                            let block: &mut Block = match self.get_block_by_name(&message.name) {
                                 Some(block) => block,
                                 None => {
                                     // For now ignore error and just continue
@@ -236,7 +228,7 @@ impl StatusBar {
                                 }
                             };
                             // Ignore errors
-                            let _ = block.run(message.mode().clone()).await;
+                            let _ = block.run(message.mode.clone()).await;
 
                             if sender.send(self.get_status_bar()).await.is_err() {
                                 // Receiving channel was closed, so there is no point
