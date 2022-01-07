@@ -1,6 +1,7 @@
 pub mod frame;
 pub mod tcp;
 
+use std::error::Error;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -11,9 +12,17 @@ use crate::statusbar::BlockRefreshMessage;
 
 #[async_trait]
 pub trait Listener {
-    type Error: std::error::Error;
+    type Error: Error;
     fn new(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>) -> Self;
     async fn run(&self) -> Result<(), Self::Error>;
+}
+
+#[async_trait]
+pub trait Notifier {
+    type Error: Error;
+    fn new(config: Arc<Config>) -> Self;
+    fn push_message(&mut self, message: BlockRefreshMessage);
+    async fn send_messages(self) -> Result<(), Self::Error>;
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -31,4 +40,8 @@ pub fn get_listener(
     }
 }
 
-pub use tcp::TcpListener;
+pub fn get_notifier(notifier_type: ServerType, config: Arc<Config>) -> impl Notifier {
+    match notifier_type {
+        ServerType::Tcp => tcp::TcpNotifier::new(config),
+    }
+}
