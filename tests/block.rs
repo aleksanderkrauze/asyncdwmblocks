@@ -1,11 +1,9 @@
-use std::sync::Arc;
-
 use asyncdwmblocks::block::{Block, BlockRunMode};
 use asyncdwmblocks::config::Config;
 
 #[tokio::test]
 async fn run_mode_button() {
-    let config = Arc::new(Config::default());
+    let config = Config::default().arc();
     let mut block = Block::new(
         "button".into(),
         "./tests/assets/button.sh".into(),
@@ -26,12 +24,11 @@ async fn run_mode_button() {
 
 #[tokio::test]
 async fn run_mode_button_changed_env_variable() {
-    let config = Config::default();
     let config = Config {
         button_env_variable: String::from("BTN"),
-        ..config
-    };
-    let config = Arc::new(config);
+        ..Config::default()
+    }
+    .arc();
     let mut block = Block::new(
         "button".into(),
         "./tests/assets/button_btn.sh".into(),

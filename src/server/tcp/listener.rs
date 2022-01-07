@@ -118,10 +118,11 @@ mod tests {
     #[tokio::test]
     async fn run_tcp_listener() {
         let (sender, mut receiver) = channel(8);
-        let config = Arc::new(Config {
+        let config = Config {
             tcp_port: 44002,
             ..Config::default()
-        });
+        }
+        .arc();
 
         let listener = TcpListener::new(sender, Arc::clone(&config));
         tokio::spawn(async move {

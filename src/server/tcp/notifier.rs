@@ -79,10 +79,11 @@ mod tests {
 
     #[tokio::test]
     async fn send_notification() {
-        let config = Arc::new(Config {
+        let config = Config {
             tcp_port: 44001,
             ..Config::default()
-        });
+        }
+        .arc();
 
         let config_notifier = Arc::clone(&config);
         tokio::spawn(async move {

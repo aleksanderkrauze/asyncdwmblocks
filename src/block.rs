@@ -32,12 +32,11 @@ use crate::config::Config;
 ///
 /// # Example
 /// ```
-/// use std::sync::Arc;
 /// use asyncdwmblocks::block::{Block, BlockRunMode};
 /// use asyncdwmblocks::config::Config;
 ///
 /// # async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
-/// let config = Arc::new(Config::default());
+/// let config = Config::default().arc();
 /// let mut b = Block::new("battery".into(), "my_battery_script.sh".into(), vec![], Some(60), config);
 /// match b.run(BlockRunMode::Normal).await {
 ///     Ok(_) => {
@@ -134,12 +133,11 @@ impl BlockRunError {
 ///
 /// # Example
 /// ```
-/// use std::sync::Arc;
 /// use asyncdwmblocks::block::{Block, BlockRunMode};
 /// use asyncdwmblocks::config::Config;
 ///
 /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
-/// let config = Arc::new(Config::default());
+/// let config = Config::default().arc();
 /// let mut block = Block::new("date_block".into(), "date_script".into(), vec![], Some(60), config);
 ///
 /// block.run(BlockRunMode::Normal).await?; // run date_script normally
@@ -227,12 +225,11 @@ impl Block {
     ///
     /// # Example
     /// ```
-    /// use std::sync::Arc;
     /// use asyncdwmblocks::block::{Block, BlockRunMode};
     /// use asyncdwmblocks::config::Config;
     ///
     /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let config = Arc::new(Config::default());
+    /// let config = Config::default().arc();
     /// let mut block = Block::new("hello".into(), "echo".into(), vec!["Hello".into()], None, config);
     /// block.run(BlockRunMode::Normal).await?;
     ///
@@ -286,7 +283,7 @@ impl Block {
     ///
     /// # use std::time::Duration;
     /// # async fn async_main() {
-    /// let config = Arc::new(Config::default());
+    /// let config = Config::default().arc();
     /// let date = Block::new("date".into(), "date".into(), vec![], Some(60), Arc::clone(&config));
     /// let message = Block::new("hello_message".into(), "echo".into(), vec!["Hello!".into()], None, Arc::clone(&config));
     ///
@@ -352,7 +349,7 @@ mod tests {
 
     #[tokio::test]
     async fn block_run() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let mut echo = Block::new(
             "echo-test".to_string(),
             "echo".to_string(),
@@ -369,7 +366,7 @@ mod tests {
 
     #[tokio::test]
     async fn block_run_multiple_lines() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let mut echo = Block::new(
             "echo-test".to_string(),
             "echo".to_string(),
@@ -386,7 +383,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_nonexisting_command() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let mut block = Block::new(
             "error".into(),
             "xfewxj1287rxn31xm31rx798321x".into(),
@@ -401,7 +398,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_test_blocking() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let mut block = Block::new("".into(), "sleep".into(), vec!["1".into()], None, config);
 
         let timeout = timeout_at(
@@ -421,7 +418,7 @@ mod tests {
 
     #[tokio::test]
     async fn block_get_scheduler() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let block = Block::new("".into(), "".into(), vec![], Some(1), config);
         let mut scheduler = block.get_scheduler().unwrap();
 

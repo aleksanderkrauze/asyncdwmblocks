@@ -24,7 +24,7 @@ use crate::block::{Block, BlockRunMode};
 /// use asyncdwmblocks::config::Config;
 ///
 /// # fn main() {
-/// let config = Arc::new(Config::default());
+/// let config = Config::default().arc();
 /// let b1 = Block::new("test".into(), "".into(), vec![], None, Arc::clone(&config));
 /// let b2 = Block::new("test".into(), "".into(), vec![], None, Arc::clone(&config));
 ///
@@ -98,7 +98,7 @@ impl StatusBar {
     /// use asyncdwmblocks::config::Config;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let config = Arc::new(Config::default());
+    /// let config = Config::default().arc();
     /// let battery = Block::new("battery".into(), "my_battery_script".into(), vec![], Some(60), Arc::clone(&config));
     /// let datetime = Block::new("datetime".into(), "my_daterime_script".into(), vec![], Some(60), Arc::clone(&config));
     /// let info = Block::new("info".into(), "echo".into(), vec!["asyncdwmblocks".into()], None, Arc::clone(&config));
@@ -159,7 +159,7 @@ impl StatusBar {
     /// use asyncdwmblocks::config::Config;
     ///
     /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let config = Arc::new(Config::default());
+    /// let config = Config::default().arc();
     /// let b = Block::new("date_block".into(), "date".into(), vec![], Some(60), Arc::clone(&config));
     /// let mut status_bar = StatusBar::new(vec![b], " ".into())?;
     ///
@@ -349,7 +349,7 @@ mod tests {
 
     #[test]
     fn statusbar_get_status_bar() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let mut statusbar = setup_blocks_for_get_status_bar(
             " ",
             vec![Some("A"), Some("B b B"), None, Some("D--")],
@@ -366,7 +366,7 @@ mod tests {
 
     #[test]
     fn statusbar_get_status_bar_all_none() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let mut statusbar =
             setup_blocks_for_get_status_bar(" ", vec![None, None, None, None, None], config);
         assert_eq!(String::from(""), statusbar.get_status_bar());
@@ -374,7 +374,7 @@ mod tests {
 
     #[test]
     fn statusbar_get_status_bar_emojis() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let mut statusbar = setup_blocks_for_get_status_bar(
             " | ",
             vec![Some("🔋 50%"), Some("📅 01/01/2022"), Some("🕒 12:00")],
@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn statusbar_new_ok() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let data = vec![
             Block::new("bat".into(), "".into(), vec![], None, Arc::clone(&config)),
             Block::new("date".into(), "".into(), vec![], None, Arc::clone(&config)),
@@ -410,7 +410,7 @@ mod tests {
 
     #[test]
     fn statusbar_new_err() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let data = vec![
             Block::new("bat".into(), "".into(), vec![], None, Arc::clone(&config)),
             Block::new("date".into(), "".into(), vec![], None, Arc::clone(&config)),
@@ -446,7 +446,7 @@ mod tests {
 
     #[tokio::test]
     async fn statusbar_init() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         // Flag -u sets UTC standard. Since this is what we are comparing
         // this must be set, or this test will fail around midnight.
         let date_block = Block::new(
@@ -478,7 +478,7 @@ mod tests {
 
     #[test]
     fn get_block_by_name() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let b1 = Block::new(
             "name1".into(),
             "".into(),
@@ -512,7 +512,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_intervals() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let b = Block::new(
             "epoch".into(),
             "date".into(),
@@ -553,7 +553,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_intervals_reload() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let b = Block::new(
             "epoch".into(),
             "date".into(),
@@ -602,7 +602,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_intervals_channel_on_task() {
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let b = Block::new(
             "epoch".into(),
             "date".into(),
@@ -657,7 +657,7 @@ mod tests {
         // doing wrong and try to fix/optimize it.
         const NUM: usize = 40;
 
-        let config = Arc::new(Config::default());
+        let config = Config::default().arc();
         let blocks: Vec<Block> = (0..NUM)
             .map(|i| {
                 Block::new(
