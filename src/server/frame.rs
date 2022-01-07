@@ -8,6 +8,31 @@ pub enum Frame {
     Error,
 }
 
+impl Frame {
+    pub fn encode(&self) -> Vec<u8> {
+        match self {
+            Frame::Message(msg) => {
+                let s = match msg {
+                    BlockRefreshMessage {
+                        name,
+                        mode: BlockRunMode::Normal,
+                    } => {
+                        format!("REFRESH {}\r\n", name)
+                    }
+                    BlockRefreshMessage {
+                        name,
+                        mode: BlockRunMode::Button(b),
+                    } => {
+                        format!("BUTTON {} {}\r\n", b, name)
+                    }
+                };
+                Vec::from(s.as_bytes())
+            }
+            Frame::Error => Vec::new(),
+        }
+    }
+}
+
 impl From<&[u8]> for Frame {
     fn from(data: &[u8]) -> Self {
         let data = match String::from_utf8(Vec::from(data)) {
@@ -48,9 +73,28 @@ impl From<&[u8]> for Frame {
     }
 }
 
+impl From<BlockRefreshMessage> for Frame {
+    fn from(msg: BlockRefreshMessage) -> Self {
+        Self::Message(msg)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Frames {
     frames: Vec<Frame>,
+}
+
+impl Frames {
+    pub fn encode(&self) -> Vec<u8> {
+        self.frames
+            .iter()
+            .map(|f| f.encode())
+            .reduce(|mut acc, mut f| {
+                acc.append(&mut f);
+                acc
+            })
+            .unwrap_or_default()
+    }
 }
 
 impl IntoIterator for Frames {
@@ -80,19 +124,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn frame_decoding_empty() {
+    fn frame_decode_empty() {
         let frame = Frame::from(b"".as_slice());
         assert_eq!(frame, Frame::Error);
     }
 
     #[test]
-    fn frame_decoding_empty_whitespaces() {
+    fn frame_decode_empty_whitespaces() {
         let frame = Frame::from(b" \t\t   ".as_slice());
         assert_eq!(frame, Frame::Error);
     }
 
     #[test]
-    fn frame_decoding_invalid() {
+    fn frame_decode_invalid() {
         let frame1 = Frame::from(b"Invalid_frame".as_slice());
         let frame2 = Frame::from(b"Invalid frame".as_slice());
         let frame3 = Frame::from(b"block_id REFRESH".as_slice());
@@ -113,13 +157,13 @@ mod tests {
     }
 
     #[test]
-    fn frame_decoding_invalid_utf8() {
+    fn frame_decode_invalid_utf8() {
         let frame = Frame::from(b"REFRESH\xf0\x90\x28\xbc block_id".as_slice());
         assert_eq!(frame, Frame::Error);
     }
 
     #[test]
-    fn frame_decoding_refresh() {
+    fn frame_decode_refresh() {
         let frame = Frame::from(b"refresh block1".as_slice());
         assert_eq!(
             frame,
@@ -132,7 +176,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    fn frame_decoding_REFRESH() {
+    fn frame_decode_REFRESH() {
         let frame = Frame::from(b"REFRESH block1".as_slice());
         assert_eq!(
             frame,
@@ -144,7 +188,7 @@ mod tests {
     }
 
     #[test]
-    fn frame_decoding_refresh_different_cases() {
+    fn frame_decode_refresh_different_cases() {
         let frame = Frame::from(b"rEFrEsH block1".as_slice());
         assert_eq!(
             frame,
@@ -156,7 +200,7 @@ mod tests {
     }
 
     #[test]
-    fn frame_decoding_refresh_extra_whitespaces() {
+    fn frame_decode_refresh_extra_whitespaces() {
         let frame1 = Frame::from(b"REFRESH   block1 ".as_slice());
         let frame2 = Frame::from(b"REFRESH\tblock2".as_slice());
         let frame3 = Frame::from(b"REFRESH \t block3 \t".as_slice());
@@ -193,7 +237,7 @@ mod tests {
     }
 
     #[test]
-    fn frame_decoding_button() {
+    fn frame_decode_button() {
         let frame = Frame::from(b"button 1 block1".as_slice());
         assert_eq!(
             frame,
@@ -206,7 +250,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    fn frame_decoding_BUTTON() {
+    fn frame_decode_BUTTON() {
         let frame = Frame::from(b"BUTTON 1 block1".as_slice());
         assert_eq!(
             frame,
@@ -218,7 +262,7 @@ mod tests {
     }
 
     #[test]
-    fn frame_decoding_button_different_cases() {
+    fn frame_decode_button_different_cases() {
         let frame = Frame::from(b"BuTTon 1 block1".as_slice());
         assert_eq!(
             frame,
@@ -230,7 +274,7 @@ mod tests {
     }
 
     #[test]
-    fn frame_decoding_button_extra_whitespaces() {
+    fn frame_decode_button_extra_whitespaces() {
         let frame1 = Frame::from(b"BUTTON  1  block1 ".as_slice());
         let frame2 = Frame::from(b"BUTTON\t2\tblock2".as_slice());
         let frame3 = Frame::from(b"BUTTON   3 block3   ".as_slice());
@@ -275,7 +319,7 @@ mod tests {
     }
 
     #[test]
-    fn frame_decoding_button_wrong_number() {
+    fn frame_decode_button_wrong_number() {
         let frame1 = Frame::from(b"BUTTON 1024 block1".as_slice());
         let frame2 = Frame::from(b"BUTTON A31 block1".as_slice());
 
@@ -284,7 +328,35 @@ mod tests {
     }
 
     #[test]
-    fn frames() {
+    fn frame_encode() {
+        let empty = Frame::Error;
+        let normal = Frame::Message(BlockRefreshMessage::new(
+            String::from("date"),
+            BlockRunMode::Normal,
+        ));
+        let button1 = Frame::Message(BlockRefreshMessage::new(
+            String::from("battery"),
+            BlockRunMode::Button(1),
+        ));
+        let button2 = Frame::Message(BlockRefreshMessage::new(
+            String::from("backlight"),
+            BlockRunMode::Button(2),
+        ));
+
+        assert_eq!(empty.encode(), vec![]);
+        assert_eq!(normal.encode(), Vec::from("REFRESH date\r\n".as_bytes()));
+        assert_eq!(
+            button1.encode(),
+            Vec::from("BUTTON 1 battery\r\n".as_bytes())
+        );
+        assert_eq!(
+            button2.encode(),
+            Vec::from("BUTTON 2 backlight\r\n".as_bytes())
+        );
+    }
+
+    #[test]
+    fn frames_decode() {
         let data = b"REFRESH temperature\r\nREFRESH volume\r\nBUTTON 1 battery\r\nREFRESH cpu\r\n";
         let frames = Frames::from(data.as_slice());
 
@@ -308,6 +380,30 @@ mod tests {
                     BlockRunMode::Normal
                 ))
             ]
+        );
+    }
+
+    #[test]
+    fn frames_encode() {
+        let frames = vec![
+            Frame::Message(BlockRefreshMessage::new(
+                String::from("date"),
+                BlockRunMode::Normal,
+            )),
+            Frame::Message(BlockRefreshMessage::new(
+                String::from("battery"),
+                BlockRunMode::Button(1),
+            )),
+            Frame::Message(BlockRefreshMessage::new(
+                String::from("backlight"),
+                BlockRunMode::Button(2),
+            )),
+        ];
+        let frames = Frames::from_iter(frames);
+
+        assert_eq!(
+            frames.encode(),
+            Vec::from("REFRESH date\r\nBUTTON 1 battery\r\nBUTTON 2 backlight\r\n".as_bytes())
         );
     }
 }
