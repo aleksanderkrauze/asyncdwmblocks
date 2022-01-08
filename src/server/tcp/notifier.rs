@@ -1,6 +1,5 @@
 //! This module defines [TcpNotifier] and it's Error.
 
-use std::collections::VecDeque;
 use std::error::Error;
 use std::fmt;
 use std::net::Ipv4Addr;
@@ -73,8 +72,7 @@ impl Error for TcpNotifierError {}
 /// ```
 pub struct TcpNotifier {
     config: Arc<Config>,
-    // TODO: change it to normal Vec
-    buff: VecDeque<BlockRefreshMessage>,
+    buff: Vec<BlockRefreshMessage>,
 }
 
 #[async_trait]
@@ -84,12 +82,12 @@ impl Notifier for TcpNotifier {
     fn new(config: Arc<Config>) -> Self {
         Self {
             config,
-            buff: VecDeque::new(),
+            buff: Vec::new(),
         }
     }
 
     fn push_message(&mut self, message: BlockRefreshMessage) {
-        self.buff.push_back(message)
+        self.buff.push(message)
     }
 
     async fn send_messages(self) -> Result<(), Self::Error> {
