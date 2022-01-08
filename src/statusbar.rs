@@ -60,9 +60,13 @@ impl fmt::Display for StatusBarCreationError {
 
 impl Error for StatusBarCreationError {}
 
+/// Message passed to [StatusBar] informing it which block should
+/// be refreshed and how.
 #[derive(Debug, PartialEq, Clone)]
 pub struct BlockRefreshMessage {
+    /// Name (id) of a block that should be refreshed
     pub name: String,
+    /// In which mode should this block be refreshed
     pub mode: BlockRunMode,
 }
 

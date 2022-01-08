@@ -1,3 +1,5 @@
+//! This module defines [TcpNotifier] and it's Error.
+
 use std::collections::VecDeque;
 use std::error::Error;
 use std::fmt;
@@ -15,8 +17,10 @@ use crate::server::{
 };
 use crate::statusbar::BlockRefreshMessage;
 
+/// [TcpNotifier]'s error. Currently it's a wrapper around [std::io::Error].
 #[derive(Debug)]
 pub enum TcpNotifierError {
+    /// IO error.
     IO(std::io::Error),
 }
 
@@ -38,8 +42,38 @@ impl fmt::Display for TcpNotifierError {
 
 impl Error for TcpNotifierError {}
 
+/// A TCP notifier.
+///
+/// This notifier collects messages ([`BlockRefreshMessage`]) and then
+/// connects to TCP socket on *localhost* and port defined in [Config::tcp_port]
+/// and sends encoded messages to a listening server.
+///
+/// # Example
+///
+/// ```
+/// use asyncdwmblocks::config::Config;
+/// use asyncdwmblocks::server::{Notifier, tcp::TcpNotifier};
+/// use asyncdwmblocks::block::BlockRunMode;
+/// use asyncdwmblocks::statusbar::BlockRefreshMessage;
+///
+/// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut notifier = TcpNotifier::new(Config::default().arc());
+///
+/// let messages = vec![
+///     BlockRefreshMessage::new(String::from("battery"), BlockRunMode::Normal),
+///     BlockRefreshMessage::new(String::from("backlight"), BlockRunMode::Button(3))
+/// ];
+/// for message in messages {
+///     notifier.push_message(message);
+/// }
+///
+/// notifier.send_messages().await?;
+/// # Ok(())
+/// # }
+/// ```
 pub struct TcpNotifier {
     config: Arc<Config>,
+    // TODO: change it to normal Vec
     buff: VecDeque<BlockRefreshMessage>,
 }
 

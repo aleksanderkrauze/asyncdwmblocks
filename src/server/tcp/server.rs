@@ -1,3 +1,5 @@
+//! This module defines [TcpServer] and it's Error.
+
 use std::error::Error;
 use std::fmt;
 use std::net::Ipv4Addr;
@@ -15,8 +17,10 @@ use crate::server::{
 };
 use crate::statusbar::BlockRefreshMessage;
 
+/// [TcpServer]'s error. Currently it's a wrapper around [std::io::Error].
 #[derive(Debug)]
 pub enum TcpServerError {
+    /// IO Error.
     IO(std::io::Error),
 }
 
@@ -38,6 +42,57 @@ impl fmt::Display for TcpServerError {
 
 impl Error for TcpServerError {}
 
+/// A TCP server.
+///
+/// This server will listen to TCP connections on *localhost*
+/// and port defined in [Config::tcp_port]. It will run until
+/// receiving half of **sender** channel is closed or accepting
+/// new connection fails.
+///
+/// # Example
+///
+/// ```
+/// use tokio::sync::mpsc;
+/// use tokio::sync::oneshot;
+/// use asyncdwmblocks::server::{Server, tcp::TcpServer};
+/// use asyncdwmblocks::config::Config;
+///
+/// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
+/// let (sender, mut receiver) = mpsc::channel(1024);
+/// let (error_sender, mut error_receiver) = oneshot::channel();
+/// let config = Config::default().arc();
+/// let tcp_server = TcpServer::new(sender, config);
+///
+/// tokio::spawn(async move {
+///     if let Err(e) = tcp_server.run().await {
+///         let _ = error_sender.send(e);
+///     }
+/// });
+///
+/// loop {
+///     let msg = tokio::select! {
+///         msg = receiver.recv() => msg,
+///         err = &mut error_receiver => {
+///             // handle server error
+///             #
+///             # // It's an example. Don't care about properly returning this error.
+///             # break;
+///         }
+///     };
+///
+///     match msg {
+///         Some(msg) => {
+///             // process message
+///         }
+///         None => {
+///             // Channel is closed, so server is no longer running.
+///             break;
+///         }
+///     }
+/// }
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct TcpServer {
     config: Arc<Config>,
@@ -91,6 +146,7 @@ impl Server for TcpServer {
                                 // has already sent termination message and it was enforced.
                                 // So it doesn't matter that we failed.
                                 let _ = cancelation_sender.send(()).await;
+                                // Don't try to send next messages. End this task.
                                 break;
                             }
                         }

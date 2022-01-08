@@ -1,4 +1,5 @@
-//! This module allows for chaining channels by "piping" them.
+//! This module allows for chaining channels together by "piping" them.
+
 use tokio::sync::mpsc;
 
 /// Connects two channels and translates messages between them.
@@ -60,7 +61,7 @@ pub async fn mpsc_pipe_translate<R, S, T>(
 /// Connects two channels
 ///
 /// This function operates in the same way that [mpsc_pipe_translate]
-/// operates, but does not translate messages. For example see documentation
+/// does, but does not translate messages. For example see documentation
 /// of mentioned before function.
 ///
 /// # Warning

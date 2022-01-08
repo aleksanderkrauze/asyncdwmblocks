@@ -1,14 +1,84 @@
+//! This module defines framing model for translating
+//! from/to byte stream to/from [`BlockRefreshMessage`]s.
+//!
+//! This module defines two types: [Frame] and [Frames].
+//!
+//! `Frame` is a single unit of translation. It represents
+//! either a message ([`BlockRefreshMessage`]) or an `Error`
+//! (which means that decoding failed). It is more useful
+//! when used in context of `Frames`.
+//!
+//! `Frames` is a collection of `Frame`s. It implements both
+//! [FromIterator] and [IntoIterator]. It can create collection
+//! for `Frame`s from byte stream (by dividing it into blocks ended by `b"\r\n"`),
+//! and can produce byte stream back from list of `Frame`s. See
+//! examples for exemplary usage of them.
+//!
+//! # Decoding
+//!
+//! This example shows how byte stream could be decoded and interpreted
+//! as a list of `BlockRefreshMessage`s. It is used in [`Server`](super::Server)s.
+//!
+//! ```
+//! use asyncdwmblocks::server::frame::{Frames, Frame};
+//!
+//! # fn main() {
+//! let stream = b"...";
+//! let frames = Frames::from(stream.as_slice());
+//! for frame in frames {
+//!     match frame {
+//!         Frame::Message(msg) => {
+//!             // send interpreted message somewhere
+//!         }
+//!         Frame::Error => {
+//!             // stream contained error, handle it or ignore
+//!         }
+//!     }
+//! }
+//! # }
+//! ```
+//!
+//! # Encoding
+//!
+//! This example shows how list of `BlockRefreshMessage`s can be
+//! encoded into byte stream. It is used in [`Notifier`](super::Notifier)s.
+//!
+//! ```
+//! use asyncdwmblocks::statusbar::BlockRefreshMessage;
+//! use asyncdwmblocks::block::BlockRunMode;
+//! use asyncdwmblocks::server::frame::{Frames, Frame};
+//!
+//! # fn main() {
+//! let messages = vec![
+//!     BlockRefreshMessage::new(String::from("battery"), BlockRunMode::Normal),
+//!     BlockRefreshMessage::new(String::from("backlight"), BlockRunMode::Button(1)),
+//! ];
+//! let frames: Frames = messages.into_iter().map(Frame::from).collect();
+//! let stream: Vec<u8> = frames.encode(); // Send this stream somewhere
+//! # }
+//! ```
+
 use crate::block::BlockRunMode;
 use crate::statusbar::BlockRefreshMessage;
 use crate::utils::SplitAtRN;
 
+/// This enum defines single unit of translation.
+///
+/// `Frame` can either hold a message, or (when decoding)
+/// and `Error` variant (which indicates that translation failed).
+/// It can be created either from `&[u8]` (decoding) or from
+/// `BlockRefreshMessage` (to be later encoded). In both cases it is
+/// done by implementing [`From`] trait.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Frame {
+    /// This variant holds decoded/passed message.
     Message(BlockRefreshMessage),
+    /// This variant indicates error while decoding.
     Error,
 }
 
 impl Frame {
+    /// Encodes `Frame` into `Vec<u8>`.
     pub fn encode(&self) -> Vec<u8> {
         match self {
             Frame::Message(msg) => {
@@ -33,6 +103,7 @@ impl Frame {
     }
 }
 
+/// Creates `Frame` from byte stream. Used in decoding.
 impl From<&[u8]> for Frame {
     fn from(data: &[u8]) -> Self {
         let data = match String::from_utf8(Vec::from(data)) {
@@ -73,18 +144,26 @@ impl From<&[u8]> for Frame {
     }
 }
 
+/// Creates `Frame` from `BlockRefreshMessage`. Used in encoding.
 impl From<BlockRefreshMessage> for Frame {
     fn from(msg: BlockRefreshMessage) -> Self {
         Self::Message(msg)
     }
 }
 
+/// This struct represents a collection of `Frame`s.
+///
+/// It implements both `From<&u8>` and `FromIterator<Frame>`
+/// which can be used to decode and encode frames respectively.
+/// It also implements `IntoIterator` to allow easily iterating
+/// over contained `Frame`s.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Frames {
     frames: Vec<Frame>,
 }
 
 impl Frames {
+    /// Encodes `Frames` into `Vec<u8>`.
     pub fn encode(&self) -> Vec<u8> {
         self.frames
             .iter()

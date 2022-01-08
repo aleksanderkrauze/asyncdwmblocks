@@ -1,16 +1,30 @@
+//! This module defines struct [Config] used to set behaviour of
+//! many parts of this library and statusbar executables.
+
 use std::sync::Arc;
 
 use crate::server::ServerType;
 
+/// Main configuration struct.
+///
+/// Currently only way (rather than constructing it by hand) to create
+/// this struct is to use it's [`Default`] variant. In future it will
+/// be possible to create it from config file or cli arguments.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Config {
+    /// Name of the environment variable that is set for running
+    /// block's process when this block was "clicked".
+    /// Defaults to `$BUTTON`.
     pub button_env_variable: String,
+    /// TCP port that asyncdwmblocks listens on for refreshing blocks
+    /// on demand. Used when [ServerType] is TCP. Defaults to 44000.
     pub tcp_port: u16,
+    /// Type of server (and notifier) for communication between processes.
     pub server_type: ServerType,
 }
 
 impl Config {
-    /// Wraps [Config] into [Arc].
+    /// Wraps [Config] in [Arc].
     ///
     /// Because many structs contain `Arc<Config>` this method allows to easily
     /// wrap Config into Arc without need to import Arc and calling ugly `Arc::new`.
