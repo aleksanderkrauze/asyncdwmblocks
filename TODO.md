@@ -8,4 +8,5 @@
  - [ ] Add InternalConfig to Config and use it (server protocol?)
  - [ ] Add BlocksConfig for default Blocks
  - [ ] Put TcpServer and TcpNotifier behind feature flag (tcp) and create feature management
+ - [ ] Load Configuration from config file
  - [ ] Write documentation for asyncdwmblocks library (lib.rs file)
