@@ -15,7 +15,7 @@ futures = "0.3"
 
 [dependencies.tokio]
 version = "1.15"
-features = ["time", "sync", "process", "macros", "rt-multi-thread"]
+features = ["time", "sync", "process", "macros", "rt-multi-thread", "parking_lot"]
 
 [dependencies.yaml-rust]
 version = "0.4"
