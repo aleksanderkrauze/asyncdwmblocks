@@ -1,0 +1,6 @@
+button_env_variable: BTN
+
+ipc:
+  type: tcp
+  tcp:
+    port: 44005

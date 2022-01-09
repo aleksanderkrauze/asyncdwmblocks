@@ -22,6 +22,7 @@ pub mod frame;
 pub mod tcp;
 
 use std::error::Error;
+use std::fmt;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -77,6 +78,16 @@ pub enum ServerType {
     /// Port is defined in [`Config`].
     #[cfg(feature = "tcp")]
     Tcp,
+}
+
+impl fmt::Display for ServerType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let msg = match self {
+            ServerType::Tcp => "TCP",
+        };
+
+        write!(f, "{}", msg)
+    }
 }
 
 /// Creates server from configuration.
