@@ -7,7 +7,7 @@
  - [ ] Add LICENSE and set metadata in Cargo.toml
  - [ ] Add InternalConfig to Config and use it (server protocol?)
  - [ ] Add BlocksConfig for default Blocks
- - [ ] Load Configuration from config file
  - [ ] Write documentation for asyncdwmblocks library (lib.rs file)
  - [ ] Put timeout at running Block's command
+ - [x] Load Configuration from config file
  - [x] Put TcpServer and TcpNotifier behind feature flag (tcp) and create feature management

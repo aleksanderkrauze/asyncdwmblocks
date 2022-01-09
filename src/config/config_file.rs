@@ -1,4 +1,5 @@
-//! This module implements loading [Config] from file.
+//! This module implements loading [Config] from file
+//! and is put behind `config-file` feature.
 
 use std::error::Error;
 use std::fmt;
@@ -21,8 +22,8 @@ pub enum ConfigLoadError {
     UTF8,
     /// File couldn't be parsed as a valid YAML document.
     YamlParse(ScanError),
-    /// File was parsed as a valid YAML document, but
-    /// some field has wrong type.
+    /// File was parsed as a valid YAML document,
+    /// but some field has wrong type.
     Syntax(String),
     /// Some option is wrongly set or doesn't make sense.
     ConfigError(String),

@@ -6,7 +6,11 @@ mod config_file;
 #[cfg(feature = "config-file")]
 pub use config_file::ConfigLoadError;
 
+use std::error::Error;
 use std::sync::Arc;
+
+#[cfg(feature = "config-file")]
+use tokio::fs;
 
 #[cfg(feature = "ipc")]
 use crate::ipc::ServerType;
@@ -45,6 +49,47 @@ impl Config {
     /// ```
     pub fn arc(self) -> Arc<Self> {
         Arc::new(self)
+    }
+
+    /// Tries to load `Config` from file. If config file can't be found
+    /// or asyncdwmblocks was compiled without `config-file` feature,
+    /// then [default](Default) `Config` is returned.
+    ///
+    /// This function tries to locate config file in following locations
+    /// (and following order):
+    /// - `$XDG_CONFIG_HOME/asyncdwmblocks/config.yaml`
+    /// - `$HOME/.config/asyncdwmblocks/config.yaml`
+    pub async fn get_config() -> Result<Config, Box<dyn Error>> {
+        #[cfg(feature = "config-file")]
+        {
+            // check $XDG_CONFIG_HOME/asyncdwmblocks/config.yaml
+            if let Some(var) = std::env::var_os("XDG_CONFIG_HOME") {
+                let mut path = std::path::PathBuf::from(var);
+                path.push("asyncdwmblocks/config.yaml");
+
+                // Metadata returned Ok(), so file exists
+                if fs::metadata(&path).await.is_ok() {
+                    return Config::load_from_file(&path)
+                        .await
+                        .map_err(|e| Box::new(e) as Box<dyn Error>);
+                }
+            }
+
+            // check $HOME/.config/asyncdwmblocks/config.yaml
+            if let Some(var) = std::env::var_os("HOME") {
+                let mut path = std::path::PathBuf::from(var);
+                path.push(".config/asyncdwmblocks/config.yaml");
+
+                // Metadata returned Ok(), so file exists
+                if fs::metadata(&path).await.is_ok() {
+                    return Config::load_from_file(&path)
+                        .await
+                        .map_err(|e| Box::new(e) as Box<dyn Error>);
+                }
+            }
+        }
+        // return default
+        Ok(Config::default())
     }
 }
 

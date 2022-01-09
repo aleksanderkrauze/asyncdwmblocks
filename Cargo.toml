@@ -27,8 +27,4 @@ optional = true
 
 [dev-dependencies]
 chrono = "0.4"
-
-[[test]]
-name = "config_file"
-path = "tests/config_file.rs"
-required-features = ["config-file"]
+rusty-fork = "0.3"
