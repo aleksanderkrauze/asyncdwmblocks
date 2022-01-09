@@ -1,24 +1,18 @@
-//! This module defines struct [Config] used to set behaviour of
-//! many parts of this library and statusbar executables.
-
-#![cfg_attr(not(feature = "config-file"), allow(unused_imports))]
+//! This module implements loading [Config] from file.
 
 use std::error::Error;
 use std::fmt;
 use std::path::Path;
-use std::sync::Arc;
 
+use tokio::fs;
+use yaml_rust::{scanner::ScanError, YamlLoader};
+
+use super::Config;
 #[cfg(feature = "ipc")]
 use crate::ipc::ServerType;
 
-#[cfg(feature = "config-file")]
-use tokio::fs;
-#[cfg(feature = "config-file")]
-use yaml_rust::{scanner::ScanError, YamlLoader};
-
-/// This enum represents an error returned whilst loading
-/// configuration from config file.
-#[cfg(feature = "config-file")]
+/// This enum represents an error returned whilst
+/// [loading](Config::load_from_file) configuration from config file.
 #[derive(Debug)]
 pub enum ConfigLoadError {
     /// IO error that occurred while opening/reading a file.
@@ -34,7 +28,6 @@ pub enum ConfigLoadError {
     ConfigError(String),
 }
 
-#[cfg(feature = "config-file")]
 impl fmt::Display for ConfigLoadError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg = match self {
@@ -51,68 +44,39 @@ impl fmt::Display for ConfigLoadError {
     }
 }
 
-#[cfg(feature = "config-file")]
 impl From<std::io::Error> for ConfigLoadError {
     fn from(err: std::io::Error) -> Self {
         Self::IO(err)
     }
 }
 
-#[cfg(feature = "config-file")]
 impl From<std::string::FromUtf8Error> for ConfigLoadError {
     fn from(_err: std::string::FromUtf8Error) -> Self {
         Self::UTF8
     }
 }
 
-#[cfg(feature = "config-file")]
 impl From<ScanError> for ConfigLoadError {
     fn from(err: ScanError) -> Self {
         Self::YamlParse(err)
     }
 }
 
-#[cfg(feature = "config-file")]
 impl Error for ConfigLoadError {}
 
-/// Main configuration struct.
-#[derive(Debug, PartialEq, Clone)]
-pub struct Config {
-    /// Name of the environment variable that is set for running
-    /// block's process when this block was "clicked".
-    /// Defaults to `$BUTTON`.
-    pub button_env_variable: String,
-    /// TCP port that asyncdwmblocks listens on for refreshing blocks
-    /// on demand. Used when [ServerType] is TCP. Defaults to 44000.
-    #[cfg(feature = "tcp")]
-    pub tcp_port: u16,
-    /// Type of server (and notifier) for communication between processes.
-    #[cfg(feature = "ipc")]
-    pub server_type: ServerType,
-}
-
 impl Config {
-    /// Wraps [Config] in [Arc].
-    ///
-    /// Because many structs contain `Arc<Config>` this method allows to easily
-    /// wrap Config into Arc without need to import Arc and calling ugly `Arc::new`.
+    /// Tries to load configuration from configuration file.
     ///
     /// # Example
+    ///
     /// ```
     /// use asyncdwmblocks::config::Config;
-    /// use std::sync::Arc;
     ///
-    /// # fn main() {
-    /// let config = Config::default().arc();
-    /// assert_eq!(config, Arc::new(Config::default()));
+    /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let config = Config::load_from_file("config.yaml").await?;
+    /// # Ok(())
     /// # }
     /// ```
-    pub fn arc(self) -> Arc<Self> {
-        Arc::new(self)
-    }
-
-    /// Tries to load configuration from configuration file.
-    #[cfg(feature = "config-file")]
     pub async fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, ConfigLoadError> {
         let file_data = fs::read(path).await?;
         let file_text = String::from_utf8(file_data)?;
@@ -200,19 +164,6 @@ impl Config {
     }
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            button_env_variable: String::from("BUTTON"),
-            #[cfg(feature = "tcp")]
-            tcp_port: 44000,
-            #[cfg(feature = "ipc")]
-            server_type: ServerType::Tcp,
-        }
-    }
-}
-
-#[cfg(feature = "config-file")]
 fn must_be_a_valid_yaml(name: &str, yaml_type: &str) -> ConfigLoadError {
     ConfigLoadError::Syntax(format!("`{}` must be a valid yaml {}", name, yaml_type))
 }
