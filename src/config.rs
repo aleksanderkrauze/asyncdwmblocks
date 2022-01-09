@@ -18,6 +18,7 @@ pub struct Config {
     pub button_env_variable: String,
     /// TCP port that asyncdwmblocks listens on for refreshing blocks
     /// on demand. Used when [ServerType] is TCP. Defaults to 44000.
+    #[cfg(feature = "tcp")]
     pub tcp_port: u16,
     /// Type of server (and notifier) for communication between processes.
     pub server_type: ServerType,
@@ -47,6 +48,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             button_env_variable: String::from("BUTTON"),
+            #[cfg(feature = "tcp")]
             tcp_port: 44000,
             server_type: ServerType::Tcp,
         }

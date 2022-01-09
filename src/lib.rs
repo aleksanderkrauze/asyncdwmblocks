@@ -1,3 +1,7 @@
+//! # Features
+//!
+//! - `tcp`: Enables IPC through tcp sockets.
+
 pub mod block;
 pub mod config;
 pub mod server;

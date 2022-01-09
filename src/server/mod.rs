@@ -19,6 +19,7 @@
 //! from config.
 
 pub mod frame;
+#[cfg(feature = "tcp")]
 pub mod tcp;
 
 use std::error::Error;
@@ -75,21 +76,27 @@ pub enum ServerType {
     /// Communicate through TCP socket.
     ///
     /// Port is defined in [`Config`].
+    #[cfg(feature = "tcp")]
     Tcp,
 }
 
+#[cfg(not(any(feature = "tcp")))]
+compile_error!("At least one of following features: [tcp] must be enabled.");
+
 /// Creates server from configuration.
 pub fn get_server(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>) -> impl Server {
-    let config = Arc::clone(&config);
-    match config.server_type {
+    let server_type = config.server_type.clone();
+    match server_type {
+        #[cfg(feature = "tcp")]
         ServerType::Tcp => tcp::TcpServer::new(sender, config),
     }
 }
 
 /// Creates notifier from configuration.
 pub fn get_notifier(config: Arc<Config>) -> impl Notifier {
-    let config = Arc::clone(&config);
-    match config.server_type {
+    let server_type = config.server_type.clone();
+    match server_type {
+        #[cfg(feature = "tcp")]
         ServerType::Tcp => tcp::TcpNotifier::new(config),
     }
 }
