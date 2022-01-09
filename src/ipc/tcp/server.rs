@@ -10,11 +10,11 @@ use tokio::io::AsyncReadExt;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::{self, Sender};
 
-use crate::config::Config;
-use crate::server::{
+use super::{
     frame::{Frame, Frames},
     Server,
 };
+use crate::config::Config;
 use crate::statusbar::BlockRefreshMessage;
 
 /// [TcpServer]'s error. Currently it's a wrapper around [std::io::Error].
@@ -54,7 +54,7 @@ impl Error for TcpServerError {}
 /// ```
 /// use tokio::sync::mpsc;
 /// use tokio::sync::oneshot;
-/// use asyncdwmblocks::server::{Server, tcp::TcpServer};
+/// use asyncdwmblocks::ipc::{Server, tcp::TcpServer};
 /// use asyncdwmblocks::config::Config;
 ///
 /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {

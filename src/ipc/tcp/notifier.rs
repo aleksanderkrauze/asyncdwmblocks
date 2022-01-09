@@ -9,11 +9,11 @@ use async_trait::async_trait;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 
-use crate::config::Config;
-use crate::server::{
+use super::{
     frame::{Frame, Frames},
     Notifier,
 };
+use crate::config::Config;
 use crate::statusbar::BlockRefreshMessage;
 
 /// [TcpNotifier]'s error. Currently it's a wrapper around [std::io::Error].
@@ -51,7 +51,7 @@ impl Error for TcpNotifierError {}
 ///
 /// ```
 /// use asyncdwmblocks::config::Config;
-/// use asyncdwmblocks::server::{Notifier, tcp::TcpNotifier};
+/// use asyncdwmblocks::ipc::{Notifier, tcp::TcpNotifier};
 /// use asyncdwmblocks::block::BlockRunMode;
 /// use asyncdwmblocks::statusbar::BlockRefreshMessage;
 ///

@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-tcp = ["tokio/net", "tokio/io-util"]
+ipc = []
+tcp = ["ipc" ,"tokio/net", "tokio/io-util"]
 default = ["tcp"]
 
 [dependencies]

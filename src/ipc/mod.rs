@@ -1,5 +1,4 @@
-//! This module defines structs and traits for communication
-//! and sending block refresh requests between processes.
+//! This module enablas IPC (inter process communication).
 //!
 //! This module defines two different (struct) types.
 //! A Server (created by implementing [`Server`] trait) and
@@ -79,9 +78,6 @@ pub enum ServerType {
     #[cfg(feature = "tcp")]
     Tcp,
 }
-
-#[cfg(not(any(feature = "tcp")))]
-compile_error!("At least one of following features: [tcp] must be enabled.");
 
 /// Creates server from configuration.
 pub fn get_server(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>) -> impl Server {

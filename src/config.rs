@@ -3,7 +3,8 @@
 
 use std::sync::Arc;
 
-use crate::server::ServerType;
+#[cfg(feature = "ipc")]
+use crate::ipc::ServerType;
 
 /// Main configuration struct.
 ///
@@ -21,6 +22,7 @@ pub struct Config {
     #[cfg(feature = "tcp")]
     pub tcp_port: u16,
     /// Type of server (and notifier) for communication between processes.
+    #[cfg(feature = "ipc")]
     pub server_type: ServerType,
 }
 
@@ -50,6 +52,7 @@ impl Default for Config {
             button_env_variable: String::from("BUTTON"),
             #[cfg(feature = "tcp")]
             tcp_port: 44000,
+            #[cfg(feature = "ipc")]
             server_type: ServerType::Tcp,
         }
     }

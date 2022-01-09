@@ -20,7 +20,7 @@
 //! as a list of `BlockRefreshMessage`s. It is used in [`Server`](super::Server)s.
 //!
 //! ```
-//! use asyncdwmblocks::server::frame::{Frames, Frame};
+//! use asyncdwmblocks::ipc::frame::{Frames, Frame};
 //!
 //! # fn main() {
 //! let stream = b"...";
@@ -46,7 +46,7 @@
 //! ```
 //! use asyncdwmblocks::statusbar::BlockRefreshMessage;
 //! use asyncdwmblocks::block::BlockRunMode;
-//! use asyncdwmblocks::server::frame::{Frames, Frame};
+//! use asyncdwmblocks::ipc::frame::{Frames, Frame};
 //!
 //! # fn main() {
 //! let messages = vec![
