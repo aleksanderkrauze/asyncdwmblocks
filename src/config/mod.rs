@@ -50,12 +50,20 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
+        #[cfg(feature = "ipc")]
+        let server_type = {
+            #[cfg(feature = "tcp")]
+            let server_type = ServerType::Tcp;
+
+            server_type
+        };
+
         Self {
             button_env_variable: String::from("BUTTON"),
             #[cfg(feature = "tcp")]
             tcp_port: 44000,
             #[cfg(feature = "ipc")]
-            server_type: ServerType::Tcp,
+            server_type,
         }
     }
 }
