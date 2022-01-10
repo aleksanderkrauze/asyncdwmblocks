@@ -16,6 +16,7 @@ async fn load_full_configuration() {
         .unwrap();
 
     assert_eq!(config.button_env_variable, String::from("BTN"));
+    assert_eq!(config.statusbar_delimiter, String::from(" | "));
     #[cfg(feature = "tcp")]
     {
         assert_eq!(config.server_type, ServerType::Tcp);

@@ -22,6 +22,8 @@ pub struct Config {
     /// block's process when this block was "clicked".
     /// Defaults to `$BUTTON`.
     pub button_env_variable: String,
+    /// Delimiter between statusbar's blocks. Default to single space (`" "`).
+    pub statusbar_delimiter: String,
     /// TCP port that asyncdwmblocks listens on for refreshing blocks
     /// on demand. Used when [ServerType] is TCP. Defaults to 44000.
     #[cfg(feature = "tcp")]
@@ -105,6 +107,7 @@ impl Default for Config {
 
         Self {
             button_env_variable: String::from("BUTTON"),
+            statusbar_delimiter: String::from(" "),
             #[cfg(feature = "tcp")]
             tcp_port: 44000,
             #[cfg(feature = "ipc")]

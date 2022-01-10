@@ -98,6 +98,17 @@ impl Config {
             config.button_env_variable = String::from(button_env_variable);
         }
 
+        let statusbar = &yaml["statusbar"];
+        if !statusbar.is_badvalue() {
+            let delimiter = &statusbar["delimiter"];
+            if !delimiter.is_badvalue() {
+                let delimiter = delimiter
+                    .as_str()
+                    .ok_or_else(|| must_be_a_valid_yaml("delimiter", "string"))?;
+                config.statusbar_delimiter = String::from(delimiter);
+            }
+        }
+
         let ipc = &yaml["ipc"];
         if !ipc.is_badvalue() {
             let server_type = &ipc["type"];

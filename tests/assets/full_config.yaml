@@ -1,3 +1,6 @@
+statusbar:
+  delimiter: " | "
+
 button_env_variable: BTN
 
 ipc:
