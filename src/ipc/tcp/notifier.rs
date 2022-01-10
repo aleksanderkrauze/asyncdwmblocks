@@ -70,6 +70,7 @@ impl Error for TcpNotifierError {}
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Debug, PartialEq, Clone)]
 pub struct TcpNotifier {
     config: Arc<Config>,
     buff: Vec<BlockRefreshMessage>,

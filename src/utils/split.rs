@@ -21,6 +21,7 @@
 /// assert_eq!(sherwood_company.next(), None); // bytes were not ended by `b"\r\n"`!
 /// # }
 /// ```
+#[derive(Debug, PartialEq, Clone)]
 pub struct SplitAtRN<'a> {
     buff: &'a [u8],
     was_last_r: bool,

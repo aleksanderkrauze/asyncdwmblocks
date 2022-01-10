@@ -11,6 +11,13 @@
 //!
 //! By default following features are enabled: `tcp`, `config-file`.
 
+#![warn(
+    missing_docs,
+    missing_debug_implementations,
+    unreachable_pub,
+    clippy::empty_line_after_outer_attr
+)]
+
 pub mod block;
 pub mod config;
 #[cfg(feature = "ipc")]

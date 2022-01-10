@@ -39,8 +39,8 @@ pub struct StatusBarCreationError {
     errors: HashMap<String, usize>,
 }
 
-/// Consumes `self` and returns `StatusBar` with `Block`s that have a unique id.
 impl StatusBarCreationError {
+    /// Consumes `self` and returns `StatusBar` with `Block`s that have a unique id.
     pub fn recover(self) -> StatusBar {
         self.blocks
     }
@@ -71,6 +71,7 @@ pub struct BlockRefreshMessage {
 }
 
 impl BlockRefreshMessage {
+    /// Creates new `BlockRefreshMessage`.
     pub fn new(name: String, mode: BlockRunMode) -> Self {
         Self { name, mode }
     }

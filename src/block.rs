@@ -337,14 +337,14 @@ mod tests {
         let join_error = tokio::spawn(async { panic!() }).await.unwrap_err();
         let join_error = JoinError(join_error);
 
-        assert_eq!(command_error.is_io(), true);
-        assert_eq!(command_error.is_internal(), false);
+        assert!(command_error.is_io());
+        assert!(!command_error.is_internal());
 
-        assert_eq!(channel_closed.is_io(), false);
-        assert_eq!(channel_closed.is_internal(), true);
+        assert!(!channel_closed.is_io());
+        assert!(channel_closed.is_internal());
 
-        assert_eq!(join_error.is_io(), false);
-        assert_eq!(join_error.is_internal(), true);
+        assert!(!join_error.is_io());
+        assert!(join_error.is_internal());
     }
 
     #[tokio::test]

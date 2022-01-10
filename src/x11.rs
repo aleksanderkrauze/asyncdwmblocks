@@ -70,6 +70,7 @@ impl From<OpenError> for X11ConnectionError {
 /// # Ok(())
 /// # }
 /// ```
+#[allow(missing_debug_implementations)] // Xlib doesn't implement Debug
 pub struct X11Connection {
     /// Xlib containing pointers to X11 functions
     xlib: Xlib,
