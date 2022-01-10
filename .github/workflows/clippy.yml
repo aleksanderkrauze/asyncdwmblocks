@@ -12,5 +12,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - uses: taiki-e/install-action@cargo-hack
     - name: Clippy deny warnings
-      run: cargo clippy --all-targets --all-features -- -D warnings
+      run: cargo hack clippy --feature-powerset --exclude-features ipc --all-targets -- -D warnings
