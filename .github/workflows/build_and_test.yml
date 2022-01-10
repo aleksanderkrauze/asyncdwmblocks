@@ -1,0 +1,19 @@
+name: Build and test
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: taiki-e/install-action@cargo-hack
+    - name: Build
+      run: cargo hack build --feature-powerset --exclude-features ipc --verbose
+    - name: Run tests
+      run: cargo hack test --feature-powerset --exclude-features ipc --verbose
