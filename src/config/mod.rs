@@ -16,7 +16,7 @@ use tokio::fs;
 use crate::ipc::ServerType;
 
 /// Main configuration struct.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Config {
     /// Name of the environment variable that is set for running
     /// block's process when this block was "clicked".

@@ -4,13 +4,7 @@ use asyncdwmblocks::config::Config;
 #[tokio::test]
 async fn run_mode_button() {
     let config = Config::default().arc();
-    let mut block = Block::new(
-        "button".into(),
-        "./tests/assets/button.sh".into(),
-        vec![],
-        None,
-        config,
-    );
+    let mut block = Block::new("./tests/assets/button.sh".into(), vec![], None, config);
 
     block.run(BlockRunMode::Button(1)).await.unwrap();
     assert_eq!(block.result(), Some(&String::from("1")));
@@ -29,13 +23,7 @@ async fn run_mode_button_changed_env_variable() {
         ..Config::default()
     }
     .arc();
-    let mut block = Block::new(
-        "button".into(),
-        "./tests/assets/button_btn.sh".into(),
-        vec![],
-        None,
-        config,
-    );
+    let mut block = Block::new("./tests/assets/button_btn.sh".into(), vec![], None, config);
 
     block.run(BlockRunMode::Button(1)).await.unwrap();
     assert_eq!(block.result(), Some(&String::from("1")));

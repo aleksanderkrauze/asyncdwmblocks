@@ -35,9 +35,9 @@ use crate::config::Config;
 /// use asyncdwmblocks::block::{Block, BlockRunMode};
 /// use asyncdwmblocks::config::Config;
 ///
-/// # async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
+/// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
 /// let config = Config::default().arc();
-/// let mut b = Block::new("battery".into(), "my_battery_script.sh".into(), vec![], Some(60), config);
+/// let mut b = Block::new("my_battery_script.sh".to_string(), vec![], Some(60), config);
 /// match b.run(BlockRunMode::Normal).await {
 ///     Ok(_) => {
 ///         // everything is ok.
@@ -138,7 +138,7 @@ impl BlockRunError {
 ///
 /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
 /// let config = Config::default().arc();
-/// let mut block = Block::new("date_block".into(), "date_script".into(), vec![], Some(60), config);
+/// let mut block = Block::new("date_script".to_string(), vec![], Some(60), config);
 ///
 /// block.run(BlockRunMode::Normal).await?; // run date_script normally
 /// block.run(BlockRunMode::Button(1)).await?; // run date_script and set $BUTTON to 1 (left click)
@@ -167,9 +167,8 @@ impl BlockRunMode {
 // we can't get past result while we are await current computation?
 
 /// This struct represents single status bar block.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Block {
-    id: String,
     command: String,
     args: Vec<String>,
     interval: Option<Duration>,
@@ -181,7 +180,6 @@ impl Block {
     /// Creates a new `Block`.
     ///
     /// Required arguments have following meaning:
-    ///  - `id`: id of this block
     ///  - `command`: command that should be executed every time this block is reloaded
     ///  - `args`: arguments to this command
     ///  - `interval`: at witch rate (in seconds) this block should reload.
@@ -193,7 +191,6 @@ impl Block {
     ///  If `interval` is `Some`, then it must be greater than 0. Interval with value
     ///  `Some(0)` will panic.
     pub fn new(
-        id: String,
         command: String,
         args: Vec<String>,
         interval: Option<u64>,
@@ -204,7 +201,6 @@ impl Block {
             assert!(interval > Some(0), "Interval must be at least 1 second.");
         }
         Self {
-            id,
             command,
             args,
             interval: interval.map(Duration::from_secs),
@@ -230,7 +226,7 @@ impl Block {
     ///
     /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Config::default().arc();
-    /// let mut block = Block::new("hello".into(), "echo".into(), vec!["Hello".into()], None, config);
+    /// let mut block = Block::new("echo".to_string(), vec!["Hello".to_string()], None, config);
     /// block.run(BlockRunMode::Normal).await?;
     ///
     /// assert_eq!(block.result(), Some(&String::from("Hello")));
@@ -284,8 +280,8 @@ impl Block {
     /// # use std::time::Duration;
     /// # async fn async_main() {
     /// let config = Config::default().arc();
-    /// let date = Block::new("date".into(), "date".into(), vec![], Some(60), Arc::clone(&config));
-    /// let message = Block::new("hello_message".into(), "echo".into(), vec!["Hello!".into()], None, Arc::clone(&config));
+    /// let date = Block::new("date".to_string(), vec![], Some(60), Arc::clone(&config));
+    /// let message = Block::new("echo".to_string(), vec!["Hello!".to_string()], None, Arc::clone(&config));
     ///
     /// assert_eq!(date.get_scheduler().unwrap().period(), Duration::from_secs(60));
     /// assert!(message.get_scheduler().is_none());
@@ -303,11 +299,6 @@ impl Block {
     /// `None` means that no computation has ever been completed.
     pub fn result(&self) -> Option<&String> {
         self.result.as_ref()
-    }
-
-    /// Returns reference to Block's id.
-    pub fn id(&self) -> &String {
-        &self.id
     }
 }
 
@@ -350,13 +341,7 @@ mod tests {
     #[tokio::test]
     async fn block_run() {
         let config = Config::default().arc();
-        let mut echo = Block::new(
-            "echo-test".to_string(),
-            "echo".to_string(),
-            vec!["ECHO".to_string()],
-            None,
-            config,
-        );
+        let mut echo = Block::new("echo".to_string(), vec!["ECHO".to_string()], None, config);
         assert_eq!(echo.result, None);
         echo.run(BlockRunMode::Normal)
             .await
@@ -368,7 +353,6 @@ mod tests {
     async fn block_run_multiple_lines() {
         let config = Config::default().arc();
         let mut echo = Block::new(
-            "echo-test".to_string(),
             "echo".to_string(),
             vec!["LINE1\nLINE2".to_string()],
             None,
@@ -384,13 +368,7 @@ mod tests {
     #[tokio::test]
     async fn run_nonexisting_command() {
         let config = Config::default().arc();
-        let mut block = Block::new(
-            "error".into(),
-            "xfewxj1287rxn31xm31rx798321x".into(),
-            vec![],
-            None,
-            config,
-        );
+        let mut block = Block::new("xfewxj1287rxn31xm31rx798321x".into(), vec![], None, config);
         let run = block.run(BlockRunMode::Normal).await;
         assert!(run.is_err());
         assert!(run.unwrap_err().is_io());
@@ -399,7 +377,7 @@ mod tests {
     #[tokio::test]
     async fn run_test_blocking() {
         let config = Config::default().arc();
-        let mut block = Block::new("".into(), "sleep".into(), vec!["1".into()], None, config);
+        let mut block = Block::new("sleep".into(), vec!["1".into()], None, config);
 
         let timeout = timeout_at(
             Instant::now() + Duration::from_millis(10),
@@ -419,7 +397,7 @@ mod tests {
     #[tokio::test]
     async fn block_get_scheduler() {
         let config = Config::default().arc();
-        let block = Block::new("".into(), "".into(), vec![], Some(1), config);
+        let block = Block::new("".into(), vec![], Some(1), config);
         let mut scheduler = block.get_scheduler().unwrap();
 
         let timeout =
