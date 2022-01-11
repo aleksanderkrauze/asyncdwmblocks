@@ -2,11 +2,13 @@
 
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
 
 use futures::future::join_all;
 use tokio::sync::mpsc;
 
 use crate::block::{Block, BlockRunMode};
+use crate::config::Config;
 
 /// Id and Block pair
 pub type BlockWithId = (String, Block);
@@ -90,7 +92,7 @@ impl BlockRefreshMessage {
 #[derive(Debug, PartialEq, Clone)]
 pub struct StatusBar {
     blocks: BlocksHolder,
-    delimiter: String,
+    config: Arc<Config>,
     buff_size: Option<usize>,
 }
 
@@ -114,13 +116,13 @@ impl StatusBar {
     ///     ("datetime".to_string(), datetime),
     ///     ("info".to_string(), info)
     /// ];
-    /// let statusbar = StatusBar::new(blocks, " ".to_string());
+    /// let statusbar = StatusBar::new(blocks, config);
     /// ```
-    pub fn new(blocks: Vec<BlockWithId>, delimiter: String) -> Self {
+    pub fn new(blocks: Vec<BlockWithId>, config: Arc<Config>) -> Self {
         let blocks = blocks.into_iter().collect();
         Self {
             blocks,
-            delimiter,
+            config,
             buff_size: None,
         }
     }
@@ -145,7 +147,7 @@ impl StatusBar {
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Config::default().arc();
     /// let b = Block::new("date".into(), vec![], Some(60), Arc::clone(&config));
-    /// let mut status_bar = StatusBar::new(vec![("date_block".to_string(), b)], " ".to_string());
+    /// let mut status_bar = StatusBar::new(vec![("date_block".to_string(), b)], config);
     ///
     /// let (result_sender, mut result_receiver) = mpsc::channel(8);
     /// let (reload_sender, reload_receiver) = mpsc::channel(8);
@@ -272,7 +274,7 @@ impl StatusBar {
 
         buffer.push_str(first.unwrap());
         blocks.for_each(|r| {
-            buffer.push_str(&self.delimiter);
+            buffer.push_str(&self.config.statusbar_delimiter);
             buffer.push_str(r);
         });
 
@@ -306,7 +308,7 @@ impl Default for StatusBar {
     fn default() -> Self {
         Self {
             blocks: BlocksHolder(Vec::default()),
-            delimiter: String::from(" "),
+            config: Config::default().arc(),
             buff_size: None,
         }
     }
@@ -321,11 +323,7 @@ mod tests {
     use std::time::SystemTime;
     use tokio::time::{sleep, timeout_at, Duration, Instant};
 
-    fn setup_blocks_for_get_status_bar(
-        delimiter: &str,
-        data: Vec<Option<&str>>,
-        config: Arc<Config>,
-    ) -> StatusBar {
+    fn setup_blocks_for_get_status_bar(data: Vec<Option<&str>>, config: Arc<Config>) -> StatusBar {
         let blocks: BlocksHolder = data
             .iter()
             .map(|x| x.map(|x| x.to_string()))
@@ -340,16 +338,19 @@ mod tests {
 
         StatusBar {
             blocks,
-            delimiter: String::from(delimiter),
+            config,
             buff_size: None,
         }
     }
 
     #[test]
     fn statusbar_get_status_bar() {
-        let config = Config::default().arc();
+        let config = Config {
+            statusbar_delimiter: " ".into(),
+            ..Config::default()
+        }
+        .arc();
         let mut statusbar = setup_blocks_for_get_status_bar(
-            " ",
             vec![Some("A"), Some("B b B"), None, Some("D--")],
             config,
         );
@@ -364,17 +365,24 @@ mod tests {
 
     #[test]
     fn statusbar_get_status_bar_all_none() {
-        let config = Config::default().arc();
+        let config = Config {
+            statusbar_delimiter: " ".into(),
+            ..Config::default()
+        }
+        .arc();
         let mut statusbar =
-            setup_blocks_for_get_status_bar(" ", vec![None, None, None, None, None], config);
+            setup_blocks_for_get_status_bar(vec![None, None, None, None, None], config);
         assert_eq!(String::from(""), statusbar.get_status_bar());
     }
 
     #[test]
     fn statusbar_get_status_bar_emojis() {
-        let config = Config::default().arc();
+        let config = Config {
+            statusbar_delimiter: " | ".into(),
+            ..Config::default()
+        }
+        .arc();
         let mut statusbar = setup_blocks_for_get_status_bar(
-            " | ",
             vec![Some("🔋 50%"), Some("📅 01/01/2022"), Some("🕒 12:00")],
             config,
         );
@@ -386,7 +394,11 @@ mod tests {
 
     #[tokio::test]
     async fn statusbar_init() {
-        let config = Config::default().arc();
+        let config = Config {
+            statusbar_delimiter: " | ".into(),
+            ..Config::default()
+        }
+        .arc();
         // Flag -u sets UTC standard. Since this is what we are comparing
         // this must be set, or this test will fail around midnight.
         let date_block = Block::new(
@@ -407,7 +419,7 @@ mod tests {
 
         let mut statusbar = StatusBar::new(
             vec![("date".into(), date_block), ("info".into(), info_block)],
-            " | ".into(),
+            config,
         );
         statusbar.init().await;
 
@@ -424,7 +436,7 @@ mod tests {
         let b2 = Block::new("".into(), vec![], Some(2), Arc::clone(&config));
 
         let mut status_bar =
-            StatusBar::new(vec![("name1".into(), b1), ("name2".into(), b2)], " ".into());
+            StatusBar::new(vec![("name1".into(), b1), ("name2".into(), b2)], config);
 
         let b1 = status_bar.get_block_by_name_mut("name1");
         assert!(b1.is_some());
@@ -449,7 +461,7 @@ mod tests {
             Some(1),
             Arc::clone(&config),
         );
-        let mut status_bar = StatusBar::new(vec![("epoch".into(), b)], "".into());
+        let mut status_bar = StatusBar::new(vec![("epoch".into(), b)], config);
 
         let (result_sender, mut result_receiver) = mpsc::channel(8);
         let (_, reload_receiver) = mpsc::channel(8);
@@ -484,7 +496,7 @@ mod tests {
     async fn run_intervals_reload() {
         let config = Config::default().arc();
         let b = Block::new("date".into(), vec!["+%s".into()], None, Arc::clone(&config));
-        let mut status_bar = StatusBar::new(vec![("epoch".into(), b)], "".into());
+        let mut status_bar = StatusBar::new(vec![("epoch".into(), b)], config);
 
         let (result_sender, mut result_receiver) = mpsc::channel(8);
         let (reload_sender, reload_receiver) = mpsc::channel(8);
@@ -527,7 +539,7 @@ mod tests {
     async fn run_intervals_channel_on_task() {
         let config = Config::default().arc();
         let b = Block::new("date".into(), vec!["+%s".into()], None, Arc::clone(&config));
-        let mut status_bar = StatusBar::new(vec![("epoch".into(), b)], "".into());
+        let mut status_bar = StatusBar::new(vec![("epoch".into(), b)], config);
 
         let (result_sender, mut result_receiver) = mpsc::channel(8);
         let (reload_sender, reload_receiver) = mpsc::channel(8);
@@ -588,7 +600,7 @@ mod tests {
                 )
             })
             .collect();
-        let mut status_bar = StatusBar::new(blocks, " ".into());
+        let mut status_bar = StatusBar::new(blocks, config);
 
         let (result_sender, mut result_receiver) = mpsc::channel(2 * NUM);
         let (_, reload_receiver) = mpsc::channel(8);

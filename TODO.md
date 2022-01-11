@@ -4,6 +4,7 @@
  loading StatusBar from config, StatusBar::default loads from Config::default
  - [ ] Block sends result though channel
 
+ - [ ] Restructure Config and use serde to load it from file
  - [ ] Remove unused features from futures dependency
  - [ ] Write binaries
  - [ ] Create patch for dwm
