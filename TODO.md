@@ -13,11 +13,11 @@
 
  - [ ] Add InternalConfig to Config and use it (server protocol?)
  - [ ] Put timeout at running Block's command (?)
- - [ ] Remove unused features from futures dependency (?)
  - [ ] Make warnings handling optional, maybe use some logging tool (?)
 
 # Done
 
+ - [x] Remove unused features from futures dependency
  - [x] Restructure Config and use serde to load it from file
  - [x] Add BlocksConfig for default Blocks
  - [x] Add LICENSE
