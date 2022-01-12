@@ -96,8 +96,8 @@ impl BlockRefreshMessage {
 /// between each pair of adjacent blocks.
 ///
 /// `StatusBar` can be created either manually by calling [new](StatusBar::new)
-/// or [from](StatusBar::from<Config>) [`Config`] (witch is preferred way).
-/// It also implements [Default] witch results in creating StatusBar from default
+/// or [from](StatusBar::from<Config>) [`Config`] (which is preferred way).
+/// It also implements [Default] which results in creating StatusBar from default
 /// `Config`.
 #[derive(Debug, PartialEq, Clone)]
 pub struct StatusBar {

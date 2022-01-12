@@ -20,7 +20,7 @@ use crate::config::Config;
 ///  3. Channel used to communicate stdout of running command closed before
 ///  sending value (represented by `ChannelClosed` variant).
 ///
-/// Depending on witch variant happened different action might be appropriate.
+/// Depending on which variant happened different action might be appropriate.
 /// If it is the first case then this error is probably user fault. We can then
 /// choose to end program, log it, inform user or simply ignore it. If it is on
 /// the other hand the latter case, then it is probably internal bug that should
@@ -194,7 +194,7 @@ impl Block {
     /// Required arguments have following meaning:
     ///  - `command`: command that should be executed every time this block is reloaded
     ///  - `args`: arguments to this command
-    ///  - `interval`: at witch rate (in seconds) this block should reload.
+    ///  - `interval`: at which rate (in seconds) this block should reload.
     ///  If `None` then it won't be automatically reload (but still can be by sending
     ///  proper signal to status bar)
     ///  - `config`: an Arc of a global configuration
