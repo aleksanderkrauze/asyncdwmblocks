@@ -13,7 +13,7 @@ use crate::config::Config;
 /// Id and Block pair
 pub type BlockWithId = (String, Block);
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 struct BlocksHolderItem {
     id: String,
     block: Block,
@@ -30,27 +30,28 @@ impl FromIterator<BlockWithId> for BlocksHolder {
         // TODO: try to reduce number of allocations
 
         // Make sure that id's are unique
-        let data: HashMap<BlocksHolderItem, usize> = iter
+        let mut data: HashMap<String, (Block, usize)> = HashMap::new();
+        for (index, (id, block)) in iter.into_iter().enumerate() {
+            if data.contains_key(&id) {
+                eprintln!(
+                    "Warning: block with id `{}` already exists. Skipping this block (`{}`).",
+                    id, block
+                );
+            } else {
+                data.insert(id, (block, index));
+            }
+        }
+
+        let mut data: Vec<(String, (Block, usize))> = data.into_iter().collect();
+        data.sort_unstable_by_key(|&(_, (_, i))| i);
+        let data: Vec<BlocksHolderItem> = data
             .into_iter()
-            .map(|(id, block)| BlocksHolderItem { id, block })
-            .enumerate()
-            .map(|(index, block)| (block, index))
+            .map(|(id, (block, _))| BlocksHolderItem { id, block })
             .collect();
-        let mut data: Vec<(BlocksHolderItem, usize)> = data.into_iter().collect();
-        data.sort_unstable_by_key(|&(_, i)| i);
-        let data: Vec<BlocksHolderItem> = data.into_iter().map(|(b, _)| b).collect();
 
         Self(data)
     }
 }
-
-// impl IntoIterator for &BlocksHolder {
-// type Item = BlocksHolderItem;
-// type IntoIter = std::vec::IntoIter<Self::Item>;
-// fn into_iter(self) -> Self::IntoIter {
-// self.0.into_iter()
-// }
-// }
 
 impl Deref for BlocksHolder {
     type Target = Vec<BlocksHolderItem>;
@@ -86,9 +87,13 @@ impl BlockRefreshMessage {
 ///
 /// `StatusBar` is a collection of `Block`s that can refresh them at
 /// their interval and also listen to incoming requests to refresh
-/// specific block. Each `Block` must have a unique id, witch is checked
-/// at the moment of creation. It has also a delimiter, that is put
+/// specific block. It reads delimiter from config, that is put
 /// between each pair of adjacent blocks.
+///
+/// `StatusBar` can be created either manually by calling [new](StatusBar::new)
+/// or [from](StatusBar::from<Config>) [`Config`] (witch is preferred way).
+/// It also implements [Default] witch results in creating StatusBar from default
+/// `Config`.
 #[derive(Debug, PartialEq, Clone)]
 pub struct StatusBar {
     blocks: BlocksHolder,
@@ -98,6 +103,9 @@ pub struct StatusBar {
 
 impl StatusBar {
     /// Creates new `StatusBar` from vector of [`BlockWithId`]'s.
+    ///
+    /// `Block`s *should* have unique id. If some ids repeat only
+    /// the **first** one will be stored.
     ///
     /// # Example
     /// ```
@@ -303,25 +311,44 @@ impl StatusBar {
     }
 }
 
+impl From<Arc<Config>> for StatusBar {
+    /// Creates `StatusBar` from given `Config`.
+    fn from(config: Arc<Config>) -> Self {
+        let blocks = config
+            .statusbar_blocks
+            .iter()
+            .map(|b| {
+                (
+                    b.name.clone(),
+                    Block::new(
+                        b.command.clone(),
+                        b.args.clone(),
+                        b.interval,
+                        Arc::clone(&config),
+                    ),
+                )
+            })
+            .collect();
+        Self::new(blocks, config)
+    }
+}
+
 impl Default for StatusBar {
-    /// Creates `StatusBar` with no blocks and a single space delimiter.
+    /// Creates `StatusBar` from default `Config`.
     fn default() -> Self {
-        Self {
-            blocks: BlocksHolder(Vec::default()),
-            config: Config::default().arc(),
-            buff_size: None,
-        }
+        Self::from(Config::default().arc())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Config;
+    use crate::config;
     use chrono::{DateTime, Utc};
-    use std::sync::Arc;
     use std::time::SystemTime;
     use tokio::time::{sleep, timeout_at, Duration, Instant};
+
+    use pretty_assertions::assert_eq;
 
     fn setup_blocks_for_get_status_bar(data: Vec<Option<&str>>, config: Arc<Config>) -> StatusBar {
         let blocks: BlocksHolder = data
@@ -355,12 +382,6 @@ mod tests {
             config,
         );
         assert_eq!(String::from("A B b B D--"), statusbar.get_status_bar());
-    }
-
-    #[test]
-    fn statusbar_get_status_bar_empty() {
-        let mut statusbar = StatusBar::default();
-        assert_eq!(String::from(""), statusbar.get_status_bar());
     }
 
     #[test]
@@ -621,5 +642,79 @@ mod tests {
                 .take_while(|r| r.is_ok())
                 .count()
         );
+    }
+
+    #[tokio::test]
+    async fn statusbar_blocks_from_config() {
+        let blocks = vec![
+            config::Block {
+                name: String::from("block1"),
+                command: String::from("echo"),
+                args: vec![String::from("I")],
+                interval: None,
+            },
+            config::Block {
+                name: String::from("block2"),
+                command: String::from("echo"),
+                args: vec![String::from("🦀!")],
+                interval: None,
+            },
+        ];
+        let config = Config {
+            statusbar_blocks: blocks,
+            statusbar_delimiter: String::from(" ❤️ "),
+            ..Config::default()
+        }
+        .arc();
+
+        let mut statusbar = StatusBar::from(config);
+        statusbar.init().await;
+
+        assert_eq!(statusbar.get_status_bar(), String::from("I ❤️ 🦀!"));
+    }
+
+    #[test]
+    fn statusbar_new_identical_ids() {
+        let config = Config::default().arc();
+        let blocks = vec![
+            (
+                "A".into(),
+                Block::new(String::from("1"), vec![], None, Arc::clone(&config)),
+            ),
+            (
+                "B".into(),
+                Block::new(String::from("2"), vec![], None, Arc::clone(&config)),
+            ),
+            (
+                "B".into(),
+                Block::new(String::from("3"), vec![], None, Arc::clone(&config)),
+            ),
+            (
+                "A".into(),
+                Block::new(String::from("4"), vec![], None, Arc::clone(&config)),
+            ),
+            (
+                "C".into(),
+                Block::new(String::from("5"), vec![], None, Arc::clone(&config)),
+            ),
+        ];
+        let expected_blocks = vec![
+            BlocksHolderItem {
+                id: String::from("A"),
+                block: Block::new(String::from("1"), vec![], None, Arc::clone(&config)),
+            },
+            BlocksHolderItem {
+                id: String::from("B"),
+                block: Block::new(String::from("2"), vec![], None, Arc::clone(&config)),
+            },
+            BlocksHolderItem {
+                id: String::from("C"),
+                block: Block::new(String::from("5"), vec![], None, Arc::clone(&config)),
+            },
+        ];
+
+        let statusbar = StatusBar::new(blocks, config);
+
+        assert_eq!(statusbar.blocks.0, expected_blocks);
     }
 }

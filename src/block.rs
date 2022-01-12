@@ -167,13 +167,25 @@ impl BlockRunMode {
 // we can't get past result while we are await current computation?
 
 /// This struct represents single status bar block.
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Block {
     command: String,
     args: Vec<String>,
     interval: Option<Duration>,
     result: Option<String>,
     config: Arc<Config>,
+}
+
+impl fmt::Display for Block {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let args = self.args.join(" ");
+        let msg = match args.len() {
+            0 => self.command.clone(),
+            _ => [self.command.clone(), args].join(" "),
+        };
+
+        write!(f, "{}", msg)
+    }
 }
 
 impl Block {

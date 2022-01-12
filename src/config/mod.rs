@@ -15,15 +15,30 @@ use tokio::fs;
 #[cfg(feature = "ipc")]
 use crate::ipc::ServerType;
 
+#[derive(Debug, PartialEq, Clone)]
+/// StatusBar's block.
+pub struct Block {
+    /// Block's name (id)
+    pub name: String,
+    /// Command to run
+    pub command: String,
+    /// Command's args
+    pub args: Vec<String>,
+    /// Refresh interval
+    pub interval: Option<u64>,
+}
+
 /// Main configuration struct.
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Config {
     /// Name of the environment variable that is set for running
     /// block's process when this block was "clicked".
     /// Defaults to `$BUTTON`.
     pub button_env_variable: String,
-    /// Delimiter between statusbar's blocks. Default to single space (`" "`).
+    /// Delimiter between statusbar's blocks. Defaults to single space (`" "`).
     pub statusbar_delimiter: String,
+    /// Blocks
+    pub statusbar_blocks: Vec<Block>,
     /// TCP port that asyncdwmblocks listens on for refreshing blocks
     /// on demand. Used when [ServerType] is TCP. Defaults to 44000.
     #[cfg(feature = "tcp")]
@@ -108,10 +123,15 @@ impl Default for Config {
         Self {
             button_env_variable: String::from("BUTTON"),
             statusbar_delimiter: String::from(" "),
+            statusbar_blocks: get_default_blocks(),
             #[cfg(feature = "tcp")]
             tcp_port: 44000,
             #[cfg(feature = "ipc")]
             server_type,
         }
     }
+}
+
+fn get_default_blocks() -> Vec<Block> {
+    Vec::new()
 }

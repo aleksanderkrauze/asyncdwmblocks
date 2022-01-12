@@ -71,7 +71,7 @@ pub trait Notifier {
 /// This enum (used in [`Config`]) specifies which method
 /// of IPC should be used by binaries and is used by functions
 /// [get_server] and [get_notifier] to create according objects.
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ServerType {
     /// Communicate through TCP socket.
     ///
