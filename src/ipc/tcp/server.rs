@@ -45,9 +45,9 @@ impl Error for TcpServerError {}
 /// A TCP server.
 ///
 /// This server will listen to TCP connections on *localhost*
-/// and port defined in [Config::tcp_port]. It will run until
-/// receiving half of **sender** channel is closed or accepting
-/// new connection fails.
+/// and port defined in [config](crate::config::ConfigIpcTcp::port).
+/// It will run until receiving half of **sender** channel is
+/// closed or accepting new connection fails.
 ///
 /// # Example
 ///
@@ -107,7 +107,7 @@ impl Server for TcpServer {
     }
 
     async fn run(&self) -> Result<(), Self::Error> {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, self.config.tcp_port)).await?;
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, self.config.ipc.tcp.port)).await?;
         let (cancelation_sender, mut cancelation_receiver) = mpsc::channel::<()>(1);
 
         loop {
@@ -167,6 +167,8 @@ impl Server for TcpServer {
 mod tests {
     use super::*;
     use crate::block::BlockRunMode;
+    use crate::config;
+    use crate::ipc::ServerType;
     use tokio::io::AsyncWriteExt;
     use tokio::net::TcpStream;
     use tokio::sync::mpsc::channel;
@@ -175,7 +177,10 @@ mod tests {
     async fn run_tcp_listener() {
         let (sender, mut receiver) = channel(8);
         let config = Config {
-            tcp_port: 44002,
+            ipc: config::ConfigIpc {
+                server_type: ServerType::Tcp,
+                tcp: config::ConfigIpcTcp { port: 44002 },
+            },
             ..Config::default()
         }
         .arc();
@@ -186,7 +191,7 @@ mod tests {
         });
 
         tokio::spawn(async move {
-            let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, config.tcp_port))
+            let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, config.ipc.tcp.port))
                 .await
                 .unwrap();
 

@@ -1,7 +1,20 @@
 statusbar:
   delimiter: " | "
+  blocks:
+    - name: volume
+      command: my_volume_script.sh
+    - name: battery
+      command: my_battery_script.sh
+      interval: 60
+    - name: date
+      command: my_datetime_script.sh
+      args:
+        - --my-arg 5
+        - today
+      interval: 1
 
-button_env_variable: BTN
+block:
+  clicked_env_variable: BTN
 
 ipc:
   type: tcp

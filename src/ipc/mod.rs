@@ -26,6 +26,8 @@ use std::fmt;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+#[cfg(feature = "config-file")]
+use serde::Deserialize;
 use tokio::sync::mpsc;
 
 use crate::config::Config;
@@ -71,12 +73,14 @@ pub trait Notifier {
 /// This enum (used in [`Config`]) specifies which method
 /// of IPC should be used by binaries and is used by functions
 /// [get_server] and [get_notifier] to create according objects.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone)]
+#[cfg_attr(feature = "config-file", derive(Deserialize))]
 pub enum ServerType {
     /// Communicate through TCP socket.
     ///
     /// Port is defined in [`Config`].
     #[cfg(feature = "tcp")]
+    #[cfg_attr(feature = "config-file", serde(rename = "tcp"))]
     Tcp,
 }
 
@@ -92,7 +96,7 @@ impl fmt::Display for ServerType {
 
 /// Creates server from configuration.
 pub fn get_server(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>) -> impl Server {
-    let server_type = config.server_type.clone();
+    let server_type = config.ipc.server_type;
     match server_type {
         #[cfg(feature = "tcp")]
         ServerType::Tcp => tcp::TcpServer::new(sender, config),
@@ -101,7 +105,7 @@ pub fn get_server(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>
 
 /// Creates notifier from configuration.
 pub fn get_notifier(config: Arc<Config>) -> impl Notifier {
-    let server_type = config.server_type.clone();
+    let server_type = config.ipc.server_type;
     match server_type {
         #[cfg(feature = "tcp")]
         ServerType::Tcp => tcp::TcpNotifier::new(config),

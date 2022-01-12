@@ -422,7 +422,7 @@ mod tests {
             BlockRunMode::Button(2),
         ));
 
-        assert_eq!(empty.encode(), vec![]);
+        assert_eq!(empty.encode(), Vec::<u8>::new());
         assert_eq!(normal.encode(), Vec::from("REFRESH date\r\n".as_bytes()));
         assert_eq!(
             button1.encode(),

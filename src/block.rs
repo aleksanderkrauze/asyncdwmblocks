@@ -126,10 +126,10 @@ impl BlockRunError {
 ///
 /// `asyncdwmblocks` gives you an ability to make your blocks
 /// behave differently when clicked. This is done by setting
-/// environment variable specified in [Config](Config::button_env_variable)
-/// (which defaults to `$BUTTON`) for spawned process by running
-/// a block. You can therefore use this variable in your scripts
-/// and choose different action when clicked with specific mouse button.
+/// environment variable specified in [Config](crate::config::ConfigBlock::clicked_env_variable)
+/// for spawned process by running a block. You can therefore
+/// use this variable in your scripts and choose different
+/// action when clicked with specific mouse button.
 ///
 /// # Example
 /// ```
@@ -257,7 +257,7 @@ impl Block {
             let mut command = Command::new(command);
             let command = command.args(args);
             let command = match mode.button() {
-                Some(b) => command.env(&config.button_env_variable, b.to_string()),
+                Some(b) => command.env(&config.block.clicked_env_variable, b.to_string()),
                 None => command,
             };
 

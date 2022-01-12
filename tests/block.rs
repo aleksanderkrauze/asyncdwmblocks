@@ -1,5 +1,5 @@
 use asyncdwmblocks::block::{Block, BlockRunMode};
-use asyncdwmblocks::config::Config;
+use asyncdwmblocks::config::{self, Config};
 
 #[tokio::test]
 async fn run_mode_button() {
@@ -19,7 +19,9 @@ async fn run_mode_button() {
 #[tokio::test]
 async fn run_mode_button_changed_env_variable() {
     let config = Config {
-        button_env_variable: String::from("BTN"),
+        block: config::ConfigBlock {
+            clicked_env_variable: String::from("BTN"),
+        },
         ..Config::default()
     }
     .arc();

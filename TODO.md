@@ -1,17 +1,24 @@
 # TODO list:
 
  - [ ] Block sends result though channel
- - [ ] Make warnings handling optional
- - [ ] Restructure Config and use serde to load it from file
  - [ ] Write binaries
  - [ ] Create patch for dwm
  - [ ] Add README with instructions on how to build and install this package
  - [ ] Set metadata in Cargo.toml
- - [ ] Add InternalConfig to Config and use it (server protocol?)
+ - [ ] Upload crate to crates.io
  - [ ] Write documentation for asyncdwmblocks library (lib.rs file)
  - [ ] Add option to daemonise asyncdwmblocks (bin)
+
+# Idea
+
+ - [ ] Add InternalConfig to Config and use it (server protocol?)
  - [ ] Put timeout at running Block's command (?)
  - [ ] Remove unused features from futures dependency (?)
+ - [ ] Make warnings handling optional, maybe use some logging tool (?)
+
+# Done
+
+ - [x] Restructure Config and use serde to load it from file
  - [x] Add BlocksConfig for default Blocks
  - [x] Add LICENSE
  - [x] Load Configuration from config file

@@ -1,1 +1,2 @@
-button_env_variable: "1"
+block:
+  clicked_env_variable: "1"

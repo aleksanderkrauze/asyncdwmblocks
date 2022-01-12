@@ -287,7 +287,7 @@ impl StatusBar {
 
         buffer.push_str(first.unwrap());
         blocks.for_each(|r| {
-            buffer.push_str(&self.config.statusbar_delimiter);
+            buffer.push_str(&self.config.statusbar.delimiter);
             buffer.push_str(r);
         });
 
@@ -320,7 +320,8 @@ impl From<Arc<Config>> for StatusBar {
     /// Creates `StatusBar` from given `Config`.
     fn from(config: Arc<Config>) -> Self {
         let blocks = config
-            .statusbar_blocks
+            .statusbar
+            .blocks
             .iter()
             .map(|b| {
                 (
@@ -378,7 +379,10 @@ mod tests {
     #[test]
     fn statusbar_get_status_bar() {
         let config = Config {
-            statusbar_delimiter: " ".into(),
+            statusbar: config::ConfigStatusBar {
+                delimiter: " ".into(),
+                ..config::ConfigStatusBar::default()
+            },
             ..Config::default()
         }
         .arc();
@@ -392,7 +396,10 @@ mod tests {
     #[test]
     fn statusbar_get_status_bar_all_none() {
         let config = Config {
-            statusbar_delimiter: " ".into(),
+            statusbar: config::ConfigStatusBar {
+                delimiter: " ".into(),
+                ..config::ConfigStatusBar::default()
+            },
             ..Config::default()
         }
         .arc();
@@ -404,7 +411,10 @@ mod tests {
     #[test]
     fn statusbar_get_status_bar_emojis() {
         let config = Config {
-            statusbar_delimiter: " | ".into(),
+            statusbar: config::ConfigStatusBar {
+                delimiter: " | ".into(),
+                ..config::ConfigStatusBar::default()
+            },
             ..Config::default()
         }
         .arc();
@@ -421,7 +431,10 @@ mod tests {
     #[tokio::test]
     async fn statusbar_init() {
         let config = Config {
-            statusbar_delimiter: " | ".into(),
+            statusbar: config::ConfigStatusBar {
+                delimiter: " | ".into(),
+                ..config::ConfigStatusBar::default()
+            },
             ..Config::default()
         }
         .arc();
@@ -652,13 +665,13 @@ mod tests {
     #[tokio::test]
     async fn statusbar_blocks_from_config() {
         let blocks = vec![
-            config::Block {
+            config::ConfigStatusBarBlock {
                 name: String::from("block1"),
                 command: String::from("echo"),
                 args: vec![String::from("I")],
                 interval: None,
             },
-            config::Block {
+            config::ConfigStatusBarBlock {
                 name: String::from("block2"),
                 command: String::from("echo"),
                 args: vec![String::from("🦀!")],
@@ -666,8 +679,10 @@ mod tests {
             },
         ];
         let config = Config {
-            statusbar_blocks: blocks,
-            statusbar_delimiter: String::from(" ❤️ "),
+            statusbar: config::ConfigStatusBar {
+                blocks,
+                delimiter: String::from(" ❤️ "),
+            },
             ..Config::default()
         }
         .arc();

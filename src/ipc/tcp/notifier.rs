@@ -44,7 +44,8 @@ impl Error for TcpNotifierError {}
 /// A TCP notifier.
 ///
 /// This notifier collects messages ([`BlockRefreshMessage`]) and then
-/// connects to TCP socket on *localhost* and port defined in [Config::tcp_port]
+/// connects to TCP socket on *localhost* and port defined in
+/// [config](crate::config::ConfigIpcTcp::port)
 /// and sends encoded messages to a listening server.
 ///
 /// # Example
@@ -92,7 +93,8 @@ impl Notifier for TcpNotifier {
     }
 
     async fn send_messages(self) -> Result<(), Self::Error> {
-        let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, self.config.tcp_port)).await?;
+        let mut stream =
+            TcpStream::connect((Ipv4Addr::LOCALHOST, self.config.ipc.tcp.port)).await?;
 
         let frames: Frames = self.buff.into_iter().map(Frame::from).collect();
         let data = frames.encode();
@@ -107,13 +109,18 @@ impl Notifier for TcpNotifier {
 mod tests {
     use super::*;
     use crate::block::BlockRunMode;
+    use crate::config;
+    use crate::ipc::ServerType;
     use tokio::io::AsyncReadExt;
     use tokio::net::TcpListener;
 
     #[tokio::test]
     async fn send_notification() {
         let config = Config {
-            tcp_port: 44001,
+            ipc: config::ConfigIpc {
+                server_type: ServerType::Tcp,
+                tcp: config::ConfigIpcTcp { port: 44001 },
+            },
             ..Config::default()
         }
         .arc();
@@ -137,7 +144,7 @@ mod tests {
         });
 
         let mut buff = Vec::new();
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, config.tcp_port))
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, config.ipc.tcp.port))
             .await
             .unwrap();
         let (mut stream, _) = listener.accept().await.unwrap();
