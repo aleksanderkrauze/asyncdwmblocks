@@ -32,13 +32,18 @@ impl FromIterator<BlockWithId> for BlocksHolder {
         // Make sure that id's are unique
         let mut data: HashMap<String, (Block, usize)> = HashMap::new();
         for (index, (id, block)) in iter.into_iter().enumerate() {
-            if data.contains_key(&id) {
+            // We ignore this clippy lint, because otherwise, if we would apply
+            // it we would have to clone `id` to later use it in warning printing,
+            // which would result in much greater performance and memory impact
+            // that this does.
+            #[allow(clippy::map_entry)]
+            if !data.contains_key(&id) {
+                data.insert(id, (block, index));
+            } else {
                 eprintln!(
                     "Warning: block with id `{}` already exists. Skipping this block (`{}`).",
                     id, block
                 );
-            } else {
-                data.insert(id, (block, index));
             }
         }
 
