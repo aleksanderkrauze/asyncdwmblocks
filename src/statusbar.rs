@@ -121,7 +121,7 @@ impl StatusBar {
     ///
     /// let config = Config::default().arc();
     /// let battery = Block::new("my_battery_script".into(), vec![], Some(60), Arc::clone(&config));
-    /// let datetime = Block::new("my_daterime_script".into(), vec![], Some(60), Arc::clone(&config));
+    /// let datetime = Block::new("my_datetime_script".into(), vec![], Some(60), Arc::clone(&config));
     /// let info = Block::new("echo".into(), vec!["asyncdwmblocks".into()], None, Arc::clone(&config));
     ///
     /// let blocks = vec![
