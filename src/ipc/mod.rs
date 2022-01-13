@@ -37,7 +37,7 @@ use crate::statusbar::BlockRefreshMessage;
 #[async_trait]
 pub trait Server {
     /// Server error type (returned from running server).
-    type Error: Error;
+    type Error: Error + Send;
     /// Creates a new server.
     ///
     /// **sender** is a sender half of the channel used to
