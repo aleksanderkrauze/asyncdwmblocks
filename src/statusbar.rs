@@ -117,7 +117,7 @@ impl StatusBar {
     /// ```
     /// use std::sync::Arc;
     /// use asyncdwmblocks::block::Block;
-    /// use asyncdwmblocks::statusbar::StatusBar;
+    /// use asyncdwmblocks::statusbar::{StatusBar, BlocksHolderItem};
     /// use asyncdwmblocks::config::Config;
     ///
     /// let config = Config::default().arc();
@@ -126,9 +126,9 @@ impl StatusBar {
     /// let info = Block::new("echo".into(), vec!["asyncdwmblocks".into()], None, Arc::clone(&config));
     ///
     /// let blocks = vec![
-    ///     ("battery".to_string(), battery),
-    ///     ("datetime".to_string(), datetime),
-    ///     ("info".to_string(), info)
+    ///     BlocksHolderItem { id: "battery".to_string(), block: battery },
+    ///     BlocksHolderItem { id: "datetime".to_string(), block: datetime },
+    ///     BlocksHolderItem { id: "info".to_string(), block: info },
     /// ];
     /// let statusbar = StatusBar::new(blocks, config);
     /// ```
@@ -154,14 +154,17 @@ impl StatusBar {
     /// use std::sync::Arc;
     /// use tokio::sync::mpsc;
     /// use asyncdwmblocks::block::Block;
-    /// use asyncdwmblocks::statusbar::StatusBar;
+    /// use asyncdwmblocks::statusbar::{StatusBar, BlocksHolderItem};
     /// use asyncdwmblocks::config::Config;
     ///
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Config::default().arc();
     /// let b = Block::new("date".into(), vec![], Some(60), Arc::clone(&config));
-    /// let mut status_bar = StatusBar::new(vec![("date_block".to_string(), b)], config);
+    /// let mut status_bar = StatusBar::new(
+    ///     vec![BlocksHolderItem { id: "date_block".to_string(), block: b } ],
+    ///     config
+    /// );
     ///
     /// let (result_sender, mut result_receiver) = mpsc::channel(8);
     /// let (reload_sender, reload_receiver) = mpsc::channel(8);
@@ -366,6 +369,7 @@ mod tests {
             })
             .enumerate()
             .map(|(i, b)| (format!("id_{}", i), b))
+            .map(|(id, block)| BlocksHolderItem { id, block })
             .collect();
 
         StatusBar {
@@ -456,7 +460,16 @@ mod tests {
         let current_date = current_date.format("%d/%m/%Y").to_string();
 
         let mut statusbar = StatusBar::new(
-            vec![("date".into(), date_block), ("info".into(), info_block)],
+            vec![
+                BlocksHolderItem {
+                    id: "date".into(),
+                    block: date_block,
+                },
+                BlocksHolderItem {
+                    id: "info".into(),
+                    block: info_block,
+                },
+            ],
             config,
         );
         statusbar.init().await;
@@ -473,8 +486,19 @@ mod tests {
         let b1 = Block::new("".into(), vec![], Some(1), Arc::clone(&config));
         let b2 = Block::new("".into(), vec![], Some(2), Arc::clone(&config));
 
-        let mut status_bar =
-            StatusBar::new(vec![("name1".into(), b1), ("name2".into(), b2)], config);
+        let mut status_bar = StatusBar::new(
+            vec![
+                BlocksHolderItem {
+                    id: "name1".into(),
+                    block: b1,
+                },
+                BlocksHolderItem {
+                    id: "name2".into(),
+                    block: b2,
+                },
+            ],
+            config,
+        );
 
         let b1 = status_bar.get_block_by_name_mut("name1");
         assert!(b1.is_some());
@@ -499,7 +523,13 @@ mod tests {
             Some(1),
             Arc::clone(&config),
         );
-        let mut status_bar = StatusBar::new(vec![("epoch".into(), b)], config);
+        let mut status_bar = StatusBar::new(
+            vec![BlocksHolderItem {
+                id: "epoch".into(),
+                block: b,
+            }],
+            config,
+        );
 
         let (result_sender, mut result_receiver) = mpsc::channel(8);
         let (_, reload_receiver) = mpsc::channel(8);
@@ -534,7 +564,13 @@ mod tests {
     async fn run_intervals_reload() {
         let config = Config::default().arc();
         let b = Block::new("date".into(), vec!["+%s".into()], None, Arc::clone(&config));
-        let mut status_bar = StatusBar::new(vec![("epoch".into(), b)], config);
+        let mut status_bar = StatusBar::new(
+            vec![BlocksHolderItem {
+                id: "epoch".into(),
+                block: b,
+            }],
+            config,
+        );
 
         let (result_sender, mut result_receiver) = mpsc::channel(8);
         let (reload_sender, reload_receiver) = mpsc::channel(8);
@@ -577,7 +613,13 @@ mod tests {
     async fn run_intervals_channel_on_task() {
         let config = Config::default().arc();
         let b = Block::new("date".into(), vec!["+%s".into()], None, Arc::clone(&config));
-        let mut status_bar = StatusBar::new(vec![("epoch".into(), b)], config);
+        let mut status_bar = StatusBar::new(
+            vec![BlocksHolderItem {
+                id: "epoch".into(),
+                block: b,
+            }],
+            config,
+        );
 
         let (result_sender, mut result_receiver) = mpsc::channel(8);
         let (reload_sender, reload_receiver) = mpsc::channel(8);
@@ -625,17 +667,15 @@ mod tests {
         const NUM: usize = 40;
 
         let config = Config::default().arc();
-        let blocks: Vec<(String, Block)> = (0..NUM)
-            .map(|i| {
-                (
-                    format!("echo_{}", i),
-                    Block::new(
-                        "echo".into(),
-                        vec![format!("{}", i)],
-                        Some(1),
-                        Arc::clone(&config),
-                    ),
-                )
+        let blocks: Vec<BlocksHolderItem> = (0..NUM)
+            .map(|i| BlocksHolderItem {
+                id: format!("echo_{}", i),
+                block: Block::new(
+                    "echo".into(),
+                    vec![i.to_string()],
+                    Some(1),
+                    Arc::clone(&config),
+                ),
             })
             .collect();
         let mut status_bar = StatusBar::new(blocks, config);
@@ -696,26 +736,26 @@ mod tests {
     fn statusbar_new_identical_ids() {
         let config = Config::default().arc();
         let blocks = vec![
-            (
-                "A".into(),
-                Block::new(String::from("1"), vec![], None, Arc::clone(&config)),
-            ),
-            (
-                "B".into(),
-                Block::new(String::from("2"), vec![], None, Arc::clone(&config)),
-            ),
-            (
-                "B".into(),
-                Block::new(String::from("3"), vec![], None, Arc::clone(&config)),
-            ),
-            (
-                "A".into(),
-                Block::new(String::from("4"), vec![], None, Arc::clone(&config)),
-            ),
-            (
-                "C".into(),
-                Block::new(String::from("5"), vec![], None, Arc::clone(&config)),
-            ),
+            BlocksHolderItem {
+                id: "A".into(),
+                block: Block::new(String::from("1"), vec![], None, Arc::clone(&config)),
+            },
+            BlocksHolderItem {
+                id: "B".into(),
+                block: Block::new(String::from("2"), vec![], None, Arc::clone(&config)),
+            },
+            BlocksHolderItem {
+                id: "B".into(),
+                block: Block::new(String::from("3"), vec![], None, Arc::clone(&config)),
+            },
+            BlocksHolderItem {
+                id: "A".into(),
+                block: Block::new(String::from("4"), vec![], None, Arc::clone(&config)),
+            },
+            BlocksHolderItem {
+                id: "C".into(),
+                block: Block::new(String::from("5"), vec![], None, Arc::clone(&config)),
+            },
         ];
         let expected_blocks = vec![
             BlocksHolderItem {
