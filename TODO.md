@@ -11,6 +11,7 @@
 
 # Idea
 
+ - [ ] Add tooltip on hoover (?)
  - [ ] Add InternalConfig to Config and use it (server protocol?)
  - [ ] Put timeout at running Block's command (?)
  - [ ] Make warnings handling optional, maybe use some logging tool (?)

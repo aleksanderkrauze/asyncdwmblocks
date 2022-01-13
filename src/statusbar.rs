@@ -10,28 +10,29 @@ use tokio::sync::mpsc;
 use crate::block::{Block, BlockRunMode};
 use crate::config::Config;
 
-/// Id and Block pair
-pub type BlockWithId = (String, Block);
-
+/// Information about one block hold by [StatusBar].
 #[derive(Debug, PartialEq, Clone)]
-struct BlocksHolderItem {
-    id: String,
-    block: Block,
+pub struct BlocksHolderItem {
+    /// Block's id
+    pub id: String,
+    /// Block
+    pub block: Block,
 }
 
+/// List of blocks hold by [StatusBar].
 #[derive(Debug, PartialEq, Clone)]
-struct BlocksHolder(Vec<BlocksHolderItem>);
+pub struct BlocksHolder(Vec<BlocksHolderItem>);
 
-impl FromIterator<BlockWithId> for BlocksHolder {
+impl FromIterator<BlocksHolderItem> for BlocksHolder {
     fn from_iter<T>(iter: T) -> Self
     where
-        T: IntoIterator<Item = BlockWithId>,
+        T: IntoIterator<Item = BlocksHolderItem>,
     {
         // TODO: try to reduce number of allocations
 
         // Make sure that id's are unique
         let mut data: HashMap<String, (Block, usize)> = HashMap::new();
-        for (index, (id, block)) in iter.into_iter().enumerate() {
+        for (index, BlocksHolderItem { id, block }) in iter.into_iter().enumerate() {
             // We ignore this clippy lint, because otherwise, if we would apply
             // it we would have to clone `id` to later use it in warning printing,
             // which would result in much greater performance and memory impact
@@ -131,7 +132,7 @@ impl StatusBar {
     /// ];
     /// let statusbar = StatusBar::new(blocks, config);
     /// ```
-    pub fn new(blocks: Vec<BlockWithId>, config: Arc<Config>) -> Self {
+    pub fn new(blocks: Vec<BlocksHolderItem>, config: Arc<Config>) -> Self {
         let blocks = blocks.into_iter().collect();
         Self {
             blocks,
@@ -323,16 +324,14 @@ impl From<Arc<Config>> for StatusBar {
             .statusbar
             .blocks
             .iter()
-            .map(|b| {
-                (
-                    b.name.clone(),
-                    Block::new(
-                        b.command.clone(),
-                        b.args.clone(),
-                        b.interval,
-                        Arc::clone(&config),
-                    ),
-                )
+            .map(|b| BlocksHolderItem {
+                id: b.name.clone(),
+                block: Block::new(
+                    b.command.clone(),
+                    b.args.clone(),
+                    b.interval,
+                    Arc::clone(&config),
+                ),
             })
             .collect();
         Self::new(blocks, config)
