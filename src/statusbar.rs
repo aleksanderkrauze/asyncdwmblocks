@@ -108,7 +108,7 @@ pub struct StatusBar {
 }
 
 impl StatusBar {
-    /// Creates new `StatusBar` from vector of [`BlockWithId`]'s.
+    /// Creates new `StatusBar` from vector of [`BlocksHolderItem`]s.
     ///
     /// `Block`s *should* have unique id. If some ids repeat only
     /// the **first** one will be stored.
