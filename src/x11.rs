@@ -58,10 +58,17 @@ impl From<OpenError> for X11ConnectionError {
 /// struct. All of the methods are safe and internally using
 /// unsafe to call functions from C library.
 ///
+/// # Safety
+///
+/// This struct implements `Send` based on an assumption, that only
+/// one thread at the time will ever interact with it. It therefore
+/// **must be used** only in context of async blocks.
+///
 /// # Example
 /// ```
 /// use asyncdwmblocks::x11::X11Connection;
-/// # fn wrapper() -> Result<(), Box<dyn std::error::Error>> {
+///
+/// # fn _main() -> Result<(), Box<dyn std::error::Error>> {
 /// {
 ///     let conn = X11Connection::new()?; // Connection to X Server is established
 ///
@@ -79,6 +86,11 @@ pub struct X11Connection {
     /// Root window of above display and screen
     window: c_ulong,
 }
+
+/// SAFETY: Though task containing `X11Connection` could be moved
+/// between threads, only one thread at a time (the one currently computing this task)
+/// will try to access this struct.
+unsafe impl Send for X11Connection {}
 
 impl X11Connection {
     /// Tries to connect to X server. Returns error on failure.
