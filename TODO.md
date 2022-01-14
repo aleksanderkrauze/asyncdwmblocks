@@ -1,13 +1,12 @@
 # TODO list:
 
  - [ ] Block sends result though channel
- - [ ] Write binaries
  - [ ] Create patch for dwm
  - [ ] Add README with instructions on how to build and install this package
  - [ ] Set metadata in Cargo.toml
  - [ ] Upload crate to crates.io
  - [ ] Write documentation for asyncdwmblocks library (lib.rs file)
- - [ ] Add option to daemonise asyncdwmblocks (bin)
+ - [ ] Add option to daemonize asyncdwmblocks (bin)
  - [ ] Use *norun* in tests
  - [ ] Filter through io::Errors and give more specific description
 
@@ -20,6 +19,7 @@
 
 # Done
 
+ - [x] Write binaries
  - [x] Remove unused features from futures dependency
  - [x] Restructure Config and use serde to load it from file
  - [x] Add BlocksConfig for default Blocks
