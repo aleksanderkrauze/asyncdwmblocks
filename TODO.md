@@ -8,6 +8,8 @@
  - [ ] Upload crate to crates.io
  - [ ] Write documentation for asyncdwmblocks library (lib.rs file)
  - [ ] Add option to daemonise asyncdwmblocks (bin)
+ - [ ] Use *norun* in tests
+ - [ ] Filter through io::Errors and give more specific description
 
 # Idea
 

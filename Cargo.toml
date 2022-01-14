@@ -4,23 +4,21 @@ version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-only"
 
+[[bin]]
+name = "asyncdwmblocks-notify"
+path = "src/bin/asyncdwmblocks_notify.rs"
+required-features = ["ipc"]
+
 [features]
-ipc = ["async-trait"]
+ipc = ["async-trait", "clap"]
 tcp = ["ipc", "tokio/net", "tokio/io-util"]
 config-file = ["tokio/fs", "serde", "serde_yaml"]
 default = ["tcp", "config-file"]
 
 [dependencies]
 x11-dl = "2.19"
-
-[dependencies.futures]
-version = "0.3"
-default-features = false
-features = ["std"]
-
-[dependencies.tokio]
-version = "1.15"
-features = ["time", "sync", "process", "macros", "rt-multi-thread", "parking_lot"]
+futures = { version = "0.3", default-features = false, features = ["std"] }
+tokio = { version = "1.15", features = ["time", "sync", "process", "macros", "rt-multi-thread", "parking_lot"]}
 
 [dependencies.serde]
 version = "1.0"
@@ -34,6 +32,12 @@ optional = true
 [dependencies.async-trait]
 version = "0.1"
 optional = true
+
+[dependencies.clap]
+version = "3.0"
+optional = true
+default-features = false
+features = ["std", "unicode"]
 
 [dev-dependencies]
 chrono = "0.4"
