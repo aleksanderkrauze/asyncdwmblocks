@@ -21,19 +21,26 @@ async fn run() -> Result<(), Box<dyn Error>> {
     #[cfg(feature = "ipc")]
     let (server_error_sender, mut server_error_receiver) = oneshot::channel();
     let (termination_sender, mut termination_receiver) = oneshot::channel::<()>();
+    let (server_termination_sender, mut server_termination_receiver) = oneshot::channel::<()>();
+
     #[cfg(feature = "ipc")]
     tokio::spawn(async move {
         let server = ipc::get_server(server_sender, Arc::clone(&config));
         if let Err(e) = server.run().await {
             // If sending failed that mean that we are already finishing
             let _ = server_error_sender.send(e);
-            let _ = termination_sender.send(());
+            let _ = server_termination_sender.send(());
         }
     });
 
     let (statusbar_sender, mut statusbar_receiver) = mpsc::channel(8);
     tokio::spawn(async move {
-        statusbar.run(statusbar_sender, server_receiver).await;
+        tokio::select! {
+            Ok(()) = &mut server_termination_receiver => {},
+            _ = statusbar.run(statusbar_sender, server_receiver) => {}
+        };
+
+        let _ = termination_sender.send(());
     });
 
     tokio::spawn(async move {
@@ -43,16 +50,12 @@ async fn run() -> Result<(), Box<dyn Error>> {
     });
 
     #[cfg(feature = "ipc")]
-    tokio::select! {
-        Ok(error) = &mut server_error_receiver => Err(Box::new(error)),
-        Ok(()) = &mut termination_receiver => Ok(())
+    if let Ok(error) = server_error_receiver.await {
+        return Err(Box::new(error));
     }
 
-    #[cfg(not(feature = "ipc"))]
-    {
-        let _ = termination_receiver.await;
-        Ok(())
-    }
+    let _ = termination_receiver.await;
+    Ok(())
 }
 
 fn main() {

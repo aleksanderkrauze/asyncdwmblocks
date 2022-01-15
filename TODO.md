@@ -9,6 +9,8 @@
  - [ ] Add option to daemonize asyncdwmblocks (bin)
  - [ ] Use *norun* in tests
  - [ ] Filter through io::Errors and give more specific description
+ - [ ] Add D-BUS ipc option
+ - [ ] What to do if in block's output is '\0'? It will cause X11Connection::set_root_name to panic!
 
 # Idea
 
