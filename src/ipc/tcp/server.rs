@@ -2,6 +2,7 @@
 
 use std::error::Error;
 use std::fmt;
+use std::io;
 use std::net::Ipv4Addr;
 use std::sync::Arc;
 
@@ -21,11 +22,11 @@ use crate::statusbar::BlockRefreshMessage;
 #[derive(Debug)]
 pub enum TcpServerError {
     /// IO Error.
-    IO(std::io::Error),
+    IO(io::Error),
 }
 
-impl From<std::io::Error> for TcpServerError {
-    fn from(err: std::io::Error) -> Self {
+impl From<io::Error> for TcpServerError {
+    fn from(err: io::Error) -> Self {
         Self::IO(err)
     }
 }
@@ -33,7 +34,15 @@ impl From<std::io::Error> for TcpServerError {
 impl fmt::Display for TcpServerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg: String = match self {
-            TcpServerError::IO(err) => format!("io error: {}", err),
+            TcpServerError::IO(err) => {
+                let mut msg = format!("io error: {}", err);
+
+                if err.kind() == io::ErrorKind::AddrInUse {
+                    msg.push_str("\nCheck if anther program is using it, or if another instance of asyncdwmblocks is already running.");
+                }
+
+                msg
+            }
         };
 
         write!(f, "{}", msg)

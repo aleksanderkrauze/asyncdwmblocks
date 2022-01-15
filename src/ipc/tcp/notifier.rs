@@ -2,6 +2,7 @@
 
 use std::error::Error;
 use std::fmt;
+use std::io;
 use std::net::Ipv4Addr;
 use std::sync::Arc;
 
@@ -20,11 +21,11 @@ use crate::statusbar::BlockRefreshMessage;
 #[derive(Debug)]
 pub enum TcpNotifierError {
     /// IO error.
-    IO(std::io::Error),
+    IO(io::Error),
 }
 
-impl From<std::io::Error> for TcpNotifierError {
-    fn from(err: std::io::Error) -> Self {
+impl From<io::Error> for TcpNotifierError {
+    fn from(err: io::Error) -> Self {
         Self::IO(err)
     }
 }
@@ -32,7 +33,15 @@ impl From<std::io::Error> for TcpNotifierError {
 impl fmt::Display for TcpNotifierError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg = match self {
-            TcpNotifierError::IO(err) => format!("io error: {}", err),
+            TcpNotifierError::IO(err) => {
+                let mut msg = format!("io error: {}", err);
+
+                if err.kind() == io::ErrorKind::ConnectionRefused {
+                    msg.push_str("\nCheck if you are running asyncdwmblocks.");
+                }
+
+                msg
+            }
         };
 
         write!(f, "{}", msg)
