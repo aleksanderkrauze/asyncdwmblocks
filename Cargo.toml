@@ -20,18 +20,9 @@ config-file = ["tokio/fs", "serde", "serde_yaml"]
 default = ["tcp", "config-file"]
 
 [dependencies]
-x11-dl = "2.19"
 futures = { version = "0.3", default-features = false, features = ["std"] }
 tokio = { version = "1.15", features = ["time", "sync", "process", "macros", "rt-multi-thread", "parking_lot"]}
-
-[dependencies.serde]
-version = "1.0"
-features = ["derive"]
-optional = true
-
-[dependencies.serde_yaml]
-version = "0.8"
-optional = true
+x11-dl = "2.19"
 
 [dependencies.async-trait]
 version = "0.1"
@@ -43,7 +34,16 @@ optional = true
 default-features = false
 features = ["std", "unicode"]
 
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
+optional = true
+
+[dependencies.serde_yaml]
+version = "0.8"
+optional = true
+
 [dev-dependencies]
 chrono = "0.4"
-rusty-fork = "0.3"
 pretty_assertions = "1.0"
+rusty-fork = "0.3"
