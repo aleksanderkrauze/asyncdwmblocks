@@ -14,23 +14,20 @@ const NULL: *const c_char = std::ptr::null::<c_char>();
 
 /// This enum represents possible errors that may occurs
 /// when connecting to a X server.
-///
-/// Every variant holds a String with user-friendly error
-/// description message.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub enum X11ConnectionError {
     /// Opening [Xlib] failed
-    XlibOpenError(String),
+    XlibOpenError(OpenError),
     /// Opening connection to a default display failed
     /// (null pointer returned)
-    XOpenDisplayError(String),
+    XOpenDisplayError,
 }
 
 impl fmt::Display for X11ConnectionError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg = match self {
-            Self::XlibOpenError(msg) => msg,
-            Self::XOpenDisplayError(msg) => msg,
+            Self::XlibOpenError(err) => format!("Couldn't load Xlib: {}", err),
+            Self::XOpenDisplayError => "Couldn't connect to X11 display".to_string(),
         };
 
         write!(f, "{}", msg)
@@ -41,7 +38,7 @@ impl Error for X11ConnectionError {}
 
 impl From<OpenError> for X11ConnectionError {
     fn from(err: OpenError) -> Self {
-        Self::XlibOpenError(format!("Couldn't load Xlib: {}", err.detail()))
+        Self::XlibOpenError(err)
     }
 }
 
@@ -98,9 +95,7 @@ impl X11Connection {
         let xlib = Xlib::open()?;
         let display: *mut Display = unsafe { (xlib.XOpenDisplay)(NULL) };
         if display.is_null() {
-            return Err(X11ConnectionError::XOpenDisplayError(
-                "Couldn't connect to X11 display.".to_string(),
-            ));
+            return Err(X11ConnectionError::XOpenDisplayError);
         }
         let screen: c_int = unsafe { (xlib.XDefaultScreen)(display) };
         let window: c_ulong = unsafe { (xlib.XRootWindow)(display, screen) };
