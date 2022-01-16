@@ -5,6 +5,10 @@ edition = "2021"
 license = "GPL-3.0-only"
 
 [[bin]]
+name = "asyncdwmblocks"
+path = "src/bin/asyncdwmblocks.rs"
+
+[[bin]]
 name = "asyncdwmblocks-notify"
 path = "src/bin/asyncdwmblocks_notify.rs"
 required-features = ["ipc"]
