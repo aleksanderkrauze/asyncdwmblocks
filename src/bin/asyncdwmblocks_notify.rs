@@ -33,8 +33,8 @@ fn parse_cli_args() -> Result<BlockRefreshMessage, CliArgsParseError> {
         )
         .arg(
             Arg::new("button")
-                .long("button")
                 .short('b')
+                .long("button")
                 .takes_value(true)
                 .help("Reload given block as clicked with provided <button>"),
         );
@@ -64,9 +64,9 @@ fn parse_cli_args() -> Result<BlockRefreshMessage, CliArgsParseError> {
 }
 
 async fn run() -> Result<(), Box<dyn Error>> {
+    let msg = parse_cli_args()?;
     let config = Config::get_config().await?.arc();
 
-    let msg = parse_cli_args()?;
     let mut notifier = ipc::get_notifier(config);
 
     notifier.push_message(msg);
