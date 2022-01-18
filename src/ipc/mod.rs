@@ -66,21 +66,22 @@ pub trait Notifier {
 
 /// Type of server and notifier.
 ///
-/// This enum (used in [`Config`]) specifies which method
-/// of IPC should be used by binaries and is used by functions
-/// [get_server] and [get_notifier] to create according objects.
+/// This enum (used in [`Config`](crate::config::Config))
+/// specifies which method of IPC should be used by binaries
+/// and is used by [OpaqueServer] and [OpaqueNotifier]
+/// to create new servers/notifiers.
 #[derive(Debug, PartialEq, Copy, Clone)]
 #[cfg_attr(feature = "config-file", derive(Deserialize))]
 pub enum ServerType {
     /// Communicate through TCP socket.
     ///
-    /// Port is defined in [`Config`].
+    /// Port is defined in [`Config`](crate::config::Config).
     #[cfg(feature = "tcp")]
     #[cfg_attr(feature = "config-file", serde(rename = "tcp"))]
     Tcp,
     /// Communicate through Unix domain socket.
     ///
-    /// Address is defined in [`Config`].
+    /// Address is defined in [`Config`](crate::config::Config).
     #[cfg(feature = "uds")]
     #[cfg_attr(feature = "uds", serde(rename = "uds"))]
     UnixDomainSocket,

@@ -16,7 +16,7 @@ use super::{
 use crate::config::Config;
 use crate::statusbar::BlockRefreshMessage;
 
-/// [TcpNotifier]'s error. Currently it's a wrapper around [std::io::Error].
+/// [UdsNotifier]'s error. Currently it's a wrapper around [std::io::Error].
 #[derive(Debug)]
 pub enum UdsNotifierError {
     /// IO error.
