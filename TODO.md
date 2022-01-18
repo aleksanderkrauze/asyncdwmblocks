@@ -3,7 +3,6 @@
  - [ ] Add Unix domain sockets ipc option
  - [ ] Add D-BUS ipc option
  - [ ] Use `Self::x` in `match self { ... }`
- - [ ] Remove uds file after server finishes
  - [ ] Write tests to check failing connections in servers and notifiers
  - [ ] Write tests in `ipc::opaque`
  - [ ] Block sends result though channel
@@ -25,6 +24,7 @@
 
 # Done
 
+ - [x] Remove Unix domain socket file after server finishes
  - [x] Filter through io::Errors and give more specific description
  - [x] Write binaries
  - [x] Remove unused features from futures dependency
