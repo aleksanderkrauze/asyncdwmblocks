@@ -1,9 +1,8 @@
 # TODO list:
 
- - [ ] Add Unix domain sockets ipc option
- - [ ] Add D-BUS ipc option
+ - [ ] Add Unix domain sockets IPC option
+ - [ ] Add D-BUS IPC option
  - [ ] Use `Self::x` in `match self { ... }`
- - [ ] Write tests in `ipc::opaque`
  - [ ] Block sends result though channel
  - [ ] Create patch for dwm
  - [ ] Add README with instructions on how to build and install this package
@@ -24,6 +23,7 @@
 
 # Done
 
+ - [x] Write tests in `ipc::opaque`
  - [x] Write tests to check failing connections in servers and notifiers
  - [x] Remove Unix domain socket file after server finishes
  - [x] Filter through io::Errors and give more specific description
