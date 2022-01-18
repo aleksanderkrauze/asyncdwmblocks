@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
 
 use std::env;
+use std::path::PathBuf;
 
 use pretty_assertions::assert_eq;
 use rusty_fork::rusty_fork_test;
@@ -47,6 +48,14 @@ async fn load_full_configuration() {
     {
         assert_eq!(config.ipc.server_type, ServerType::Tcp);
         assert_eq!(config.ipc.tcp.port, 44005);
+    }
+
+    #[cfg(feature = "uds")]
+    {
+        assert_eq!(
+            config.ipc.uds.addr,
+            PathBuf::from("/home/username/.local/share/asyncdwmblocks/asyncdwmblocks.socket")
+        );
     }
 }
 

@@ -13,6 +13,7 @@
  - [ ] Add option to daemonize asyncdwmblocks (bin)
  - [ ] Use *norun* in tests
  - [ ] What to do if in block's output is `'\0'`? It will cause `X11Connection::set_root_name` to panic!
+ - [ ] In config file parse ~ as $HOME and possibly parse env variables
 
 # Idea
 
