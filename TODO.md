@@ -1,5 +1,7 @@
 # TODO list:
 
+ - [ ] Add Unix domain sockets ipc option
+ - [ ] Add D-BUS ipc option
  - [ ] Block sends result though channel
  - [ ] Create patch for dwm
  - [ ] Add README with instructions on how to build and install this package
@@ -8,8 +10,7 @@
  - [ ] Write documentation for asyncdwmblocks library (lib.rs file)
  - [ ] Add option to daemonize asyncdwmblocks (bin)
  - [ ] Use *norun* in tests
- - [ ] Add D-BUS ipc option
- - [ ] What to do if in block's output is '\0'? It will cause X11Connection::set_root_name to panic!
+ - [ ] What to do if in block's output is `'\0'`? It will cause `X11Connection::set_root_name` to panic!
 
 # Idea
 

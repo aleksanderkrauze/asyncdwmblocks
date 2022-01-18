@@ -8,7 +8,7 @@ use tokio::runtime;
 use asyncdwmblocks::{
     block::BlockRunMode,
     config::Config,
-    ipc::{self, Notifier},
+    ipc::{Notifier, OpaqueNotifier},
     statusbar::BlockRefreshMessage,
 };
 
@@ -67,7 +67,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
     let msg = parse_cli_args()?;
     let config = Config::get_config().await?.arc();
 
-    let mut notifier = ipc::get_notifier(config);
+    let mut notifier = OpaqueNotifier::new(config);
 
     notifier.push_message(msg);
     notifier.send_messages().await?;

@@ -108,12 +108,19 @@ pub struct TcpServer {
     sender: Sender<BlockRefreshMessage>,
 }
 
+impl TcpServer {
+    /// Creates a new TCP server.
+    ///
+    /// **sender** is a sender half of the channel used to
+    /// communicate that some request was made.
+    pub fn new(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>) -> Self {
+        Self { sender, config }
+    }
+}
+
 #[async_trait]
 impl Server for TcpServer {
     type Error = TcpServerError;
-    fn new(sender: Sender<BlockRefreshMessage>, config: Arc<Config>) -> Self {
-        Self { sender, config }
-    }
 
     async fn run(&self) -> Result<(), Self::Error> {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, self.config.ipc.tcp.port)).await?;

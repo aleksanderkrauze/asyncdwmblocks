@@ -18,31 +18,27 @@
 //! from config.
 
 pub mod frame;
+pub mod opaque;
 #[cfg(feature = "tcp")]
 pub mod tcp;
 
 use std::error::Error;
 use std::fmt;
-use std::sync::Arc;
 
 use async_trait::async_trait;
 #[cfg(feature = "config-file")]
 use serde::Deserialize;
-use tokio::sync::mpsc;
 
-use crate::config::Config;
 use crate::statusbar::BlockRefreshMessage;
+
+pub use opaque::{OpaqueNotifier, OpaqueServer};
 
 /// This trait defines public API for servers.
 #[async_trait]
 pub trait Server {
     /// Server error type (returned from running server).
     type Error: Error + Send;
-    /// Creates a new server.
-    ///
-    /// **sender** is a sender half of the channel used to
-    /// communicate that some request was made.
-    fn new(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>) -> Self;
+
     /// Start running server loop.
     async fn run(&self) -> Result<(), Self::Error>;
 }
@@ -56,10 +52,10 @@ pub trait Server {
 pub trait Notifier {
     /// Notifier error type.
     type Error: Error;
-    /// Create a new notifier.
-    fn new(config: Arc<Config>) -> Self;
+
     /// Add message for sending.
     fn push_message(&mut self, message: BlockRefreshMessage);
+
     /// Send all stored messages.
     ///
     /// This method consumes notifier, because it is no longer needed.
@@ -91,23 +87,5 @@ impl fmt::Display for ServerType {
         };
 
         write!(f, "{}", msg)
-    }
-}
-
-/// Creates server from configuration.
-pub fn get_server(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>) -> impl Server {
-    let server_type = config.ipc.server_type;
-    match server_type {
-        #[cfg(feature = "tcp")]
-        ServerType::Tcp => tcp::TcpServer::new(sender, config),
-    }
-}
-
-/// Creates notifier from configuration.
-pub fn get_notifier(config: Arc<Config>) -> impl Notifier {
-    let server_type = config.ipc.server_type;
-    match server_type {
-        #[cfg(feature = "tcp")]
-        ServerType::Tcp => tcp::TcpNotifier::new(config),
     }
 }

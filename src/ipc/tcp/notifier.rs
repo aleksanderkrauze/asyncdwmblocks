@@ -86,16 +86,19 @@ pub struct TcpNotifier {
     buff: Vec<BlockRefreshMessage>,
 }
 
-#[async_trait]
-impl Notifier for TcpNotifier {
-    type Error = TcpNotifierError;
-
-    fn new(config: Arc<Config>) -> Self {
+impl TcpNotifier {
+    /// Create a new notifier.
+    pub fn new(config: Arc<Config>) -> Self {
         Self {
             config,
             buff: Vec::new(),
         }
     }
+}
+
+#[async_trait]
+impl Notifier for TcpNotifier {
+    type Error = TcpNotifierError;
 
     fn push_message(&mut self, message: BlockRefreshMessage) {
         self.buff.push(message)
