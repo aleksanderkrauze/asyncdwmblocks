@@ -2,6 +2,7 @@
 
 use std::error::Error;
 use std::fmt;
+use std::fs;
 use std::io;
 use std::net::Ipv4Addr;
 use std::sync::Arc;
@@ -55,11 +56,16 @@ impl Error for UdsServerError {}
 pub struct UdsServer {
     config: Arc<Config>,
     sender: Sender<BlockRefreshMessage>,
+    binded: bool,
 }
 
 impl UdsServer {
     pub fn new(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>) -> Self {
-        Self { config, sender }
+        Self {
+            config,
+            sender,
+            binded: false,
+        }
     }
 }
 
@@ -67,10 +73,11 @@ impl UdsServer {
 impl Server for UdsServer {
     type Error = UdsServerError;
 
-    async fn run(&self) -> Result<(), Self::Error> {
+    async fn run(&mut self) -> Result<(), Self::Error> {
         let listener = UnixListener::bind(&self.config.ipc.uds.addr)?;
-        let (cancelation_sender, mut cancelation_receiver) = mpsc::channel::<()>(1);
+        self.binded = true;
 
+        let (cancelation_sender, mut cancelation_receiver) = mpsc::channel::<()>(1);
         loop {
             let mut stream = tokio::select! {
                 accepted_stream = listener.accept() => {
@@ -124,6 +131,18 @@ impl Server for UdsServer {
     }
 }
 
+impl Drop for UdsServer {
+    fn drop(&mut self) {
+        // Unlink socket file only if we connected to it.
+        // This prevens us from deleting socket file that
+        // another process is using (and we falied to bind to it).
+        if self.binded {
+            // Ignore errors during cleanup
+            let _ = fs::remove_file(&self.config.ipc.uds.addr);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,7 +173,7 @@ mod tests {
         }
         .arc();
 
-        let server = UdsServer::new(sender, Arc::clone(&config));
+        let mut server = UdsServer::new(sender, Arc::clone(&config));
         tokio::spawn(async move {
             let _ = server.run().await;
         });

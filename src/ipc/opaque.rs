@@ -132,7 +132,7 @@ impl OpaqueServer {
 impl Server for OpaqueServer {
     type Error = OpaqueServerError;
 
-    async fn run(&self) -> Result<(), Self::Error> {
+    async fn run(&mut self) -> Result<(), Self::Error> {
         match self {
             #[cfg(feature = "tcp")]
             OpaqueServer::Tcp(server) => server.run().await.map_err(Self::Error::from),

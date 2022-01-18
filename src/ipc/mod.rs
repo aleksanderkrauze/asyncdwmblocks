@@ -40,7 +40,7 @@ pub trait Server {
     type Error: Error + Send;
 
     /// Start running server loop.
-    async fn run(&self) -> Result<(), Self::Error>;
+    async fn run(&mut self) -> Result<(), Self::Error>;
 }
 
 /// This trait defines public API for notifiers.

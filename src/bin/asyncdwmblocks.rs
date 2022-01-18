@@ -25,7 +25,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
 
     #[cfg(feature = "ipc")]
     tokio::spawn(async move {
-        let server = OpaqueServer::new(server_sender, Arc::clone(&config));
+        let mut server = OpaqueServer::new(server_sender, Arc::clone(&config));
         if let Err(e) = server.run().await {
             // If sending failed that mean that we are already finishing
             let _ = server_error_sender.send(e);

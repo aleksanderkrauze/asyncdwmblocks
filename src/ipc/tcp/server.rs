@@ -122,7 +122,7 @@ impl TcpServer {
 impl Server for TcpServer {
     type Error = TcpServerError;
 
-    async fn run(&self) -> Result<(), Self::Error> {
+    async fn run(&mut self) -> Result<(), Self::Error> {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, self.config.ipc.tcp.port)).await?;
         let (cancelation_sender, mut cancelation_receiver) = mpsc::channel::<()>(1);
 
@@ -202,7 +202,7 @@ mod tests {
         }
         .arc();
 
-        let server = TcpServer::new(sender, Arc::clone(&config));
+        let mut server = TcpServer::new(sender, Arc::clone(&config));
         tokio::spawn(async move {
             let _ = server.run().await;
         });

@@ -89,7 +89,6 @@ mod tests {
     use tokio::io::AsyncReadExt;
     use tokio::net::TcpListener;
 
-    #[ignore]
     #[tokio::test]
     async fn send_notification() {
         let config = Config {
