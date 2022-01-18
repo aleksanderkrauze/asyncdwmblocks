@@ -76,7 +76,14 @@ impl Notifier for UdsNotifier {
     }
 
     async fn send_messages(self) -> Result<(), Self::Error> {
-        todo!()
+        let mut stream = UnixStream::connect(&self.config.ipc.uds.addr).await?;
+
+        let frames: Frames = self.buff.into_iter().map(Frame::from).collect();
+        let data = frames.encode();
+
+        stream.write_all(data.as_slice()).await?;
+
+        Ok(())
     }
 }
 
@@ -86,21 +93,60 @@ mod tests {
     use crate::block::BlockRunMode;
     use crate::config;
     use crate::ipc::ServerType;
+    use chrono::{DateTime, Utc};
+    use std::path::PathBuf;
+    use std::time::SystemTime;
+    use tokio::fs;
     use tokio::io::AsyncReadExt;
     use tokio::net::TcpListener;
+    use tokio::net::UnixListener;
 
     #[tokio::test]
     async fn send_notification() {
+        let timestamp: DateTime<Utc> = DateTime::from(SystemTime::now());
+        let timestamp = timestamp.format("%s").to_string();
+        let addr = PathBuf::from(format!(
+            "/tmp/asyncdwmblocks_test-notifier-{}.socket",
+            timestamp
+        ));
+
         let config = Config {
             ipc: config::ConfigIpc {
-                server_type: ServerType::Tcp,
-                tcp: config::ConfigIpcTcp { port: 44001 },
+                server_type: ServerType::UnixDomainSocket,
+                uds: config::ConfigIpcUnixDomainSocket { addr },
                 ..config::ConfigIpc::default()
             },
             ..Config::default()
         }
         .arc();
 
-        todo!()
+        let mut notifier = UdsNotifier::new(Arc::clone(&config));
+        tokio::spawn(async move {
+            notifier.push_message(BlockRefreshMessage::new(
+                String::from("cpu"),
+                BlockRunMode::Normal,
+            ));
+            notifier.push_message(BlockRefreshMessage::new(
+                String::from("memory"),
+                BlockRunMode::Button(3),
+            ));
+            notifier.push_message(BlockRefreshMessage::new(
+                String::from("battery"),
+                BlockRunMode::Button(1),
+            ));
+            notifier.send_messages().await.unwrap();
+        });
+
+        let mut buff = Vec::new();
+        let listener = UnixListener::bind(&config.ipc.uds.addr).unwrap();
+        let (mut stream, _) = listener.accept().await.unwrap();
+        stream.read_to_end(&mut buff).await.unwrap();
+
+        fs::remove_file(&config.ipc.uds.addr).await.unwrap();
+
+        assert_eq!(
+            buff.as_slice(),
+            b"REFRESH cpu\r\nBUTTON 3 memory\r\nBUTTON 1 battery\r\n"
+        );
     }
 }

@@ -160,7 +160,10 @@ mod tests {
     async fn run_uds_server() {
         let timestamp: DateTime<Utc> = DateTime::from(SystemTime::now());
         let timestamp = timestamp.format("%s").to_string();
-        let addr = PathBuf::from(format!("/tmp/asyncdwmblocks_test-{}.socket", timestamp));
+        let addr = PathBuf::from(format!(
+            "/tmp/asyncdwmblocks_test-server-{}.socket",
+            timestamp
+        ));
 
         let (sender, mut receiver) = channel(8);
         let config = Config {
@@ -186,8 +189,6 @@ mod tests {
                 .await
                 .unwrap();
         });
-
-        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
         assert_eq!(
             receiver.recv().await.unwrap(),
