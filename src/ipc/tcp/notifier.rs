@@ -67,30 +67,6 @@ impl TcpNotifierError {
 /// connects to TCP socket on *localhost* and port defined in
 /// [config](crate::config::ConfigIpcTcp::port)
 /// and sends encoded messages to a listening server.
-///
-/// # Example
-///
-/// ```
-/// use asyncdwmblocks::config::Config;
-/// use asyncdwmblocks::ipc::{Notifier, tcp::TcpNotifier};
-/// use asyncdwmblocks::block::BlockRunMode;
-/// use asyncdwmblocks::statusbar::BlockRefreshMessage;
-///
-/// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut notifier = TcpNotifier::new(Config::default().arc());
-///
-/// let messages = vec![
-///     BlockRefreshMessage::new(String::from("battery"), BlockRunMode::Normal),
-///     BlockRefreshMessage::new(String::from("backlight"), BlockRunMode::Button(3))
-/// ];
-/// for message in messages {
-///     notifier.push_message(message);
-/// }
-///
-/// notifier.send_messages().await?;
-/// # Ok(())
-/// # }
-/// ```
 #[derive(Debug, PartialEq, Clone)]
 pub struct TcpNotifier {
     config: Arc<Config>,

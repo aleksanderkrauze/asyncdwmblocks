@@ -68,51 +68,6 @@ impl TcpServerError {
 /// and port defined in [config](crate::config::ConfigIpcTcp::port).
 /// It will run until receiving half of **sender** channel is
 /// closed or accepting new connection fails.
-///
-/// # Example
-///
-/// ```
-/// use tokio::sync::mpsc;
-/// use tokio::sync::oneshot;
-/// use asyncdwmblocks::ipc::{Server, tcp::TcpServer};
-/// use asyncdwmblocks::config::Config;
-///
-/// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
-/// let (sender, mut receiver) = mpsc::channel(1024);
-/// let (error_sender, mut error_receiver) = oneshot::channel();
-/// let config = Config::default().arc();
-/// let mut tcp_server = TcpServer::new(sender, config);
-///
-/// tokio::spawn(async move {
-///     if let Err(e) = tcp_server.run().await {
-///         let _ = error_sender.send(e);
-///     }
-/// });
-///
-/// loop {
-///     let msg = tokio::select! {
-///         msg = receiver.recv() => msg,
-///         err = &mut error_receiver => {
-///             // handle server error
-///             #
-///             # // It's an example. Don't care about properly returning this error.
-///             # break;
-///         }
-///     };
-///
-///     match msg {
-///         Some(msg) => {
-///             // process message
-///         }
-///         None => {
-///             // Channel is closed, so server is no longer running.
-///             break;
-///         }
-///     }
-/// }
-/// # Ok(())
-/// # }
-/// ```
 #[derive(Debug, Clone)]
 pub struct TcpServer {
     config: Arc<Config>,
