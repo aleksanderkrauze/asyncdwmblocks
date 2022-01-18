@@ -51,6 +51,17 @@ impl fmt::Display for TcpServerError {
 
 impl Error for TcpServerError {}
 
+#[cfg(test)]
+impl TcpServerError {
+    pub(crate) fn into_io_error(self) -> Option<io::Error> {
+        #[allow(unreachable_patterns)]
+        match self {
+            Self::IO(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
 /// A TCP server.
 ///
 /// This server will listen to TCP connections on *localhost*
@@ -188,6 +199,7 @@ mod tests {
     use tokio::io::AsyncWriteExt;
     use tokio::net::TcpStream;
     use tokio::sync::mpsc::channel;
+    use tokio::time;
 
     #[tokio::test]
     async fn run_tcp_server() {
@@ -225,6 +237,38 @@ mod tests {
         assert_eq!(
             receiver.recv().await.unwrap(),
             BlockRefreshMessage::new(String::from("weather"), BlockRunMode::Button(3))
+        );
+    }
+
+    #[tokio::test]
+    async fn tcp_server_binding_error() {
+        let config = Config {
+            ipc: config::ConfigIpc {
+                server_type: ServerType::Tcp,
+                tcp: config::ConfigIpcTcp { port: 44004 },
+                ..config::ConfigIpc::default()
+            },
+            ..Config::default()
+        }
+        .arc();
+
+        let (sender1, _) = mpsc::channel(8);
+        let (sender2, _) = mpsc::channel(8);
+
+        let mut server1 = TcpServer::new(sender1, Arc::clone(&config));
+        tokio::spawn(async move {
+            let _ = server1.run().await;
+        });
+
+        time::sleep(time::Duration::from_millis(100)).await;
+
+        let mut server2 = TcpServer::new(sender2, Arc::clone(&config));
+        let s = server2.run().await;
+
+        assert!(s.is_err());
+        assert_eq!(
+            s.unwrap_err().into_io_error().unwrap().kind(),
+            io::ErrorKind::AddrInUse
         );
     }
 }

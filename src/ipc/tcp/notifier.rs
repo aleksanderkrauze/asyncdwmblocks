@@ -50,6 +50,17 @@ impl fmt::Display for TcpNotifierError {
 
 impl Error for TcpNotifierError {}
 
+#[cfg(test)]
+impl TcpNotifierError {
+    pub(crate) fn into_io_error(self) -> Option<io::Error> {
+        #[allow(unreachable_patterns)]
+        match self {
+            Self::IO(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
 /// A TCP notifier.
 ///
 /// This notifier collects messages ([`BlockRefreshMessage`]) and then
@@ -166,6 +177,32 @@ mod tests {
         assert_eq!(
             buff.as_slice(),
             b"REFRESH cpu\r\nBUTTON 3 memory\r\nBUTTON 1 battery\r\n"
+        );
+    }
+
+    #[tokio::test]
+    async fn notification_connection_error() {
+        let config = Config {
+            ipc: config::ConfigIpc {
+                server_type: ServerType::Tcp,
+                tcp: config::ConfigIpcTcp { port: 44006 },
+                ..config::ConfigIpc::default()
+            },
+            ..Config::default()
+        }
+        .arc();
+
+        let mut notifier = TcpNotifier::new(config);
+        notifier.push_message(BlockRefreshMessage::new(
+            String::from("block"),
+            BlockRunMode::Normal,
+        ));
+        let n = notifier.send_messages().await;
+
+        assert!(n.is_err());
+        assert_eq!(
+            n.unwrap_err().into_io_error().unwrap().kind(),
+            io::ErrorKind::ConnectionRefused
         );
     }
 }

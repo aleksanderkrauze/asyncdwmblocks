@@ -35,7 +35,7 @@ impl fmt::Display for UdsNotifierError {
             UdsNotifierError::IO(err) => {
                 let mut msg = format!("io error: {}", err);
 
-                if err.kind() == io::ErrorKind::ConnectionRefused {
+                if err.kind() == io::ErrorKind::NotFound {
                     msg.push_str("\nCheck if you are running asyncdwmblocks.");
                 }
 
@@ -48,6 +48,17 @@ impl fmt::Display for UdsNotifierError {
 }
 
 impl Error for UdsNotifierError {}
+
+#[cfg(test)]
+impl UdsNotifierError {
+    pub(crate) fn into_io_error(self) -> Option<io::Error> {
+        #[allow(unreachable_patterns)]
+        match self {
+            Self::IO(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 /// Unix domain socket [Notifier].
 #[derive(Debug, PartialEq, Clone)]
@@ -92,6 +103,7 @@ mod tests {
     use crate::block::BlockRunMode;
     use crate::config;
     use crate::ipc::ServerType;
+    use crate::statusbar::BlockRefreshMessage;
     use chrono::{DateTime, Utc};
     use std::path::PathBuf;
     use std::time::SystemTime;
@@ -145,6 +157,39 @@ mod tests {
         assert_eq!(
             buff.as_slice(),
             b"REFRESH cpu\r\nBUTTON 3 memory\r\nBUTTON 1 battery\r\n"
+        );
+    }
+
+    #[tokio::test]
+    async fn notification_connection_error() {
+        let timestamp: DateTime<Utc> = DateTime::from(SystemTime::now());
+        let timestamp = timestamp.format("%s").to_string();
+        let addr = PathBuf::from(format!(
+            "/tmp/asyncdwmblocks_test-notifier-connection-error-{}.socket",
+            timestamp
+        ));
+
+        let config = Config {
+            ipc: config::ConfigIpc {
+                server_type: ServerType::UnixDomainSocket,
+                uds: config::ConfigIpcUnixDomainSocket { addr },
+                ..config::ConfigIpc::default()
+            },
+            ..Config::default()
+        }
+        .arc();
+
+        let mut notifier = UdsNotifier::new(Arc::clone(&config));
+        notifier.push_message(BlockRefreshMessage::new(
+            String::from("block"),
+            BlockRunMode::Normal,
+        ));
+        let n = notifier.send_messages().await;
+
+        assert!(n.is_err());
+        assert_eq!(
+            n.unwrap_err().into_io_error().unwrap().kind(),
+            io::ErrorKind::NotFound
         );
     }
 }

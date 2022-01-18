@@ -51,6 +51,17 @@ impl fmt::Display for UdsServerError {
 
 impl Error for UdsServerError {}
 
+#[cfg(test)]
+impl UdsServerError {
+    pub(crate) fn into_io_error(self) -> Option<io::Error> {
+        #[allow(unreachable_patterns)]
+        match self {
+            Self::IO(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
 /// Unix domain socket [Server].
 #[derive(Debug, Clone)]
 pub struct UdsServer {
@@ -159,6 +170,7 @@ mod tests {
     use tokio::io::AsyncWriteExt;
     use tokio::net::UnixStream;
     use tokio::sync::mpsc::channel;
+    use tokio::time;
 
     #[tokio::test]
     async fn run_uds_server() {
@@ -201,6 +213,45 @@ mod tests {
         assert_eq!(
             receiver.recv().await.unwrap(),
             BlockRefreshMessage::new(String::from("weather"), BlockRunMode::Button(3))
+        );
+    }
+
+    #[tokio::test]
+    async fn uds_server_binding_error() {
+        let timestamp: DateTime<Utc> = DateTime::from(SystemTime::now());
+        let timestamp = timestamp.format("%s").to_string();
+        let addr = PathBuf::from(format!(
+            "/tmp/asyncdwmblocks_test-server-binding-error-{}.socket",
+            timestamp
+        ));
+
+        let (sender1, _) = channel(8);
+        let (sender2, _) = channel(8);
+
+        let config = Config {
+            ipc: config::ConfigIpc {
+                server_type: ServerType::UnixDomainSocket,
+                uds: config::ConfigIpcUnixDomainSocket { addr },
+                ..config::ConfigIpc::default()
+            },
+            ..Config::default()
+        }
+        .arc();
+
+        let mut server1 = UdsServer::new(sender1, Arc::clone(&config));
+        tokio::spawn(async move {
+            let _ = server1.run().await;
+        });
+
+        time::sleep(time::Duration::from_millis(100)).await;
+
+        let mut server2 = UdsServer::new(sender2, Arc::clone(&config));
+        let s = server2.run().await;
+
+        assert!(s.is_err());
+        assert_eq!(
+            s.unwrap_err().into_io_error().unwrap().kind(),
+            io::ErrorKind::AddrInUse
         );
     }
 }
