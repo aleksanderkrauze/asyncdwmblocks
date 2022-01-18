@@ -1,6 +1,6 @@
 # TODO list:
 
- - [ ] Add Unix domain sockets IPC option
+ - [ ] Solve problem of leaving Unix domain socket file opened when process is terminated by a signal!
  - [ ] Add D-BUS IPC option
  - [ ] Use `Self::x` in `match self { ... }`
  - [ ] Block sends result though channel
@@ -23,6 +23,7 @@
 
 # Done
 
+ - [x] Add Unix domain sockets IPC option
  - [x] Write tests in `ipc::opaque`
  - [x] Write tests to check failing connections in servers and notifiers
  - [x] Remove Unix domain socket file after server finishes

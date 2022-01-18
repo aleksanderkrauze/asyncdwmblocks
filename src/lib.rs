@@ -10,7 +10,7 @@
 //! - `config-file`: Enables loading configuration from file. If not present, then
 //! configuration will be created from source code
 //!
-//! By default following features are enabled: `tcp`, `config-file`.
+//! By default following features are enabled: `uds`, `tcp`, `config-file`.
 
 #![warn(
     missing_docs,

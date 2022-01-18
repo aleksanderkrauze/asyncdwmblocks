@@ -18,7 +18,7 @@ ipc = ["async-trait", "clap"]
 tcp = ["ipc", "tokio/net", "tokio/io-util"]
 uds = ["ipc", "tokio/net", "tokio/io-util"]
 config-file = ["tokio/fs", "serde", "serde_yaml"]
-default = ["tcp", "config-file"]
+default = ["uds", "tcp", "config-file"]
 
 [dependencies]
 futures = { version = "0.3", default-features = false, features = ["std"] }
