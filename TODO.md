@@ -2,6 +2,10 @@
 
  - [ ] Add Unix domain sockets ipc option
  - [ ] Add D-BUS ipc option
+ - [ ] Use `Self::x` in `match self { ... }`
+ - [ ] Remove uds file after server finishes
+ - [ ] Write tests to check failing connections in servers and notifiers
+ - [ ] Write tests in `ipc::opaque`
  - [ ] Block sends result though channel
  - [ ] Create patch for dwm
  - [ ] Add README with instructions on how to build and install this package

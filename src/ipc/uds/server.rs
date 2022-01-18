@@ -1,4 +1,4 @@
-//! This module defines [TcpServer] and it's Error.
+//! This module defines [UdsServer] and it's Error.
 
 use std::error::Error;
 use std::fmt;
@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::io::AsyncReadExt;
-use tokio::net::TcpListener;
+use tokio::net::UnixListener;
 use tokio::sync::mpsc::{self, Sender};
 
 use super::{
@@ -18,27 +18,27 @@ use super::{
 use crate::config::Config;
 use crate::statusbar::BlockRefreshMessage;
 
-/// [TcpServer]'s error. Currently it's a wrapper around [std::io::Error].
+/// [UdsServer]'s error. Currently it's a wrapper around [std::io::Error].
 #[derive(Debug)]
-pub enum TcpServerError {
+pub enum UdsServerError {
     /// IO Error.
     IO(io::Error),
 }
 
-impl From<io::Error> for TcpServerError {
+impl From<io::Error> for UdsServerError {
     fn from(err: io::Error) -> Self {
         Self::IO(err)
     }
 }
 
-impl fmt::Display for TcpServerError {
+impl fmt::Display for UdsServerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg: String = match self {
-            TcpServerError::IO(err) => {
+            UdsServerError::IO(err) => {
                 let mut msg = format!("io error: {}", err);
 
                 if err.kind() == io::ErrorKind::AddrInUse {
-                    msg.push_str("\nCheck if anther program is using it, or if another instance of asyncdwmblocks is already running.");
+                    msg.push_str("\nCheck if another program is using it, or if another instance of asyncdwmblocks is already running.");
                 }
 
                 msg
@@ -49,81 +49,26 @@ impl fmt::Display for TcpServerError {
     }
 }
 
-impl Error for TcpServerError {}
+impl Error for UdsServerError {}
 
-/// A TCP server.
-///
-/// This server will listen to TCP connections on *localhost*
-/// and port defined in [config](crate::config::ConfigIpcTcp::port).
-/// It will run until receiving half of **sender** channel is
-/// closed or accepting new connection fails.
-///
-/// # Example
-///
-/// ```
-/// use tokio::sync::mpsc;
-/// use tokio::sync::oneshot;
-/// use asyncdwmblocks::ipc::{Server, tcp::TcpServer};
-/// use asyncdwmblocks::config::Config;
-///
-/// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
-/// let (sender, mut receiver) = mpsc::channel(1024);
-/// let (error_sender, mut error_receiver) = oneshot::channel();
-/// let config = Config::default().arc();
-/// let tcp_server = TcpServer::new(sender, config);
-///
-/// tokio::spawn(async move {
-///     if let Err(e) = tcp_server.run().await {
-///         let _ = error_sender.send(e);
-///     }
-/// });
-///
-/// loop {
-///     let msg = tokio::select! {
-///         msg = receiver.recv() => msg,
-///         err = &mut error_receiver => {
-///             // handle server error
-///             #
-///             # // It's an example. Don't care about properly returning this error.
-///             # break;
-///         }
-///     };
-///
-///     match msg {
-///         Some(msg) => {
-///             // process message
-///         }
-///         None => {
-///             // Channel is closed, so server is no longer running.
-///             break;
-///         }
-///     }
-/// }
-/// # Ok(())
-/// # }
-/// ```
 #[derive(Debug, Clone)]
-pub struct TcpServer {
+pub struct UdsServer {
     config: Arc<Config>,
     sender: Sender<BlockRefreshMessage>,
 }
 
-impl TcpServer {
-    /// Creates a new TCP server.
-    ///
-    /// **sender** is a sender half of the channel used to
-    /// communicate that some request was made.
+impl UdsServer {
     pub fn new(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>) -> Self {
-        Self { sender, config }
+        Self { config, sender }
     }
 }
 
 #[async_trait]
-impl Server for TcpServer {
-    type Error = TcpServerError;
+impl Server for UdsServer {
+    type Error = UdsServerError;
 
     async fn run(&self) -> Result<(), Self::Error> {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, self.config.ipc.tcp.port)).await?;
+        let listener = UnixListener::bind(&self.config.ipc.uds.addr)?;
         let (cancelation_sender, mut cancelation_receiver) = mpsc::channel::<()>(1);
 
         loop {
@@ -185,38 +130,45 @@ mod tests {
     use crate::block::BlockRunMode;
     use crate::config;
     use crate::ipc::ServerType;
+    use chrono::{DateTime, Utc};
+    use std::path::PathBuf;
+    use std::time::SystemTime;
     use tokio::io::AsyncWriteExt;
-    use tokio::net::TcpStream;
+    use tokio::net::UnixStream;
     use tokio::sync::mpsc::channel;
 
     #[tokio::test]
-    async fn run_tcp_server() {
+    async fn run_uds_server() {
+        let timestamp: DateTime<Utc> = DateTime::from(SystemTime::now());
+        let timestamp = timestamp.format("%s").to_string();
+        let addr = PathBuf::from(format!("/tmp/asyncdwmblocks_test-{}.socket", timestamp));
+
         let (sender, mut receiver) = channel(8);
         let config = Config {
             ipc: config::ConfigIpc {
-                server_type: ServerType::Tcp,
-                tcp: config::ConfigIpcTcp { port: 44002 },
+                server_type: ServerType::UnixDomainSocket,
+                uds: config::ConfigIpcUnixDomainSocket { addr },
                 ..config::ConfigIpc::default()
             },
             ..Config::default()
         }
         .arc();
 
-        let server = TcpServer::new(sender, Arc::clone(&config));
+        let server = UdsServer::new(sender, Arc::clone(&config));
         tokio::spawn(async move {
             let _ = server.run().await;
         });
 
         tokio::spawn(async move {
-            let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, config.ipc.tcp.port))
-                .await
-                .unwrap();
+            let mut stream = UnixStream::connect(&config.ipc.uds.addr).await.unwrap();
 
             stream
                 .write_all(b"REFRESH date\r\nBUTTON 3 weather\r\n")
                 .await
                 .unwrap();
         });
+
+        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
         assert_eq!(
             receiver.recv().await.unwrap(),

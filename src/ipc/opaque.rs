@@ -73,6 +73,8 @@ use crate::statusbar::BlockRefreshMessage;
 
 #[cfg(feature = "tcp")]
 use super::tcp;
+#[cfg(feature = "uds")]
+use super::uds;
 
 /// Abstraction over [Server::Error] associated type for [OpaqueServer].
 #[derive(Debug)]
@@ -93,12 +95,22 @@ impl From<tcp::server::TcpServerError> for OpaqueServerError {
     }
 }
 
+#[cfg(feature = "uds")]
+impl From<uds::server::UdsServerError> for OpaqueServerError {
+    fn from(err: uds::server::UdsServerError) -> Self {
+        Self(Box::new(err))
+    }
+}
+
 /// Abstraction over [Servers](Server).
 #[derive(Debug, Clone)]
 pub enum OpaqueServer {
     /// TcpServer variant.
     #[cfg(feature = "tcp")]
     Tcp(tcp::TcpServer),
+    /// UdsServer variant.
+    #[cfg(feature = "uds")]
+    UnixDomainSocket(uds::UdsServer),
 }
 
 impl OpaqueServer {
@@ -108,6 +120,10 @@ impl OpaqueServer {
         match server_type {
             #[cfg(feature = "tcp")]
             ServerType::Tcp => OpaqueServer::Tcp(tcp::TcpServer::new(sender, config)),
+            #[cfg(feature = "uds")]
+            ServerType::UnixDomainSocket => {
+                OpaqueServer::UnixDomainSocket(uds::UdsServer::new(sender, config))
+            }
         }
     }
 }
@@ -120,6 +136,8 @@ impl Server for OpaqueServer {
         match self {
             #[cfg(feature = "tcp")]
             OpaqueServer::Tcp(server) => server.run().await.map_err(Self::Error::from),
+            #[cfg(feature = "uds")]
+            OpaqueServer::UnixDomainSocket(server) => server.run().await.map_err(Self::Error::from),
         }
     }
 }
@@ -143,12 +161,22 @@ impl From<tcp::notifier::TcpNotifierError> for OpaqueNotifierError {
     }
 }
 
+#[cfg(feature = "uds")]
+impl From<uds::notifier::UdsNotifierError> for OpaqueNotifierError {
+    fn from(err: uds::notifier::UdsNotifierError) -> Self {
+        Self(Box::new(err))
+    }
+}
+
 /// Abstraction over [Notifiers](Notifier).
 #[derive(Debug, PartialEq, Clone)]
 pub enum OpaqueNotifier {
     /// TcpNotifier variant.
     #[cfg(feature = "tcp")]
     Tcp(tcp::TcpNotifier),
+    /// UdsServer variant.
+    #[cfg(feature = "uds")]
+    UnixDomainSocket(uds::UdsNotifier),
 }
 
 impl OpaqueNotifier {
@@ -158,6 +186,10 @@ impl OpaqueNotifier {
         match server_type {
             #[cfg(feature = "tcp")]
             ServerType::Tcp => OpaqueNotifier::Tcp(tcp::TcpNotifier::new(config)),
+            #[cfg(feature = "uds")]
+            ServerType::UnixDomainSocket => {
+                OpaqueNotifier::UnixDomainSocket(uds::UdsNotifier::new(config))
+            }
         }
     }
 }
@@ -170,6 +202,8 @@ impl Notifier for OpaqueNotifier {
         match self {
             #[cfg(feature = "tcp")]
             OpaqueNotifier::Tcp(notifier) => notifier.push_message(message),
+            #[cfg(feature = "uds")]
+            OpaqueNotifier::UnixDomainSocket(notifier) => notifier.push_message(message),
         }
     }
 
@@ -177,6 +211,10 @@ impl Notifier for OpaqueNotifier {
         match self {
             #[cfg(feature = "tcp")]
             OpaqueNotifier::Tcp(notifier) => {
+                notifier.send_messages().await.map_err(Self::Error::from)
+            }
+            #[cfg(feature = "uds")]
+            OpaqueNotifier::UnixDomainSocket(notifier) => {
                 notifier.send_messages().await.map_err(Self::Error::from)
             }
         }

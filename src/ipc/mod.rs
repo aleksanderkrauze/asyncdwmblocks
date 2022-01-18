@@ -12,15 +12,15 @@
 //! and (in this case) [`BlockRefreshMessage`] and vice versa is
 //! performed by [`Frames`](frame::Frames) in the [frame] module.
 //!
-//! [`ServerType`] is used in [`Config`] to select which server
-//! (and notifier) type should be used in binaries. Two helper functions:
-//! [get_server] and [get_notifier] can be used to get server and notifier
-//! from config.
-
+//! [`ServerType`] is used in [`Config`](crate::config::Config)
+//! to select which server (and notifier) type should be used in binaries.
 pub mod frame;
 pub mod opaque;
+
 #[cfg(feature = "tcp")]
 pub mod tcp;
+#[cfg(feature = "uds")]
+pub mod uds;
 
 use std::error::Error;
 use std::fmt;
@@ -78,12 +78,21 @@ pub enum ServerType {
     #[cfg(feature = "tcp")]
     #[cfg_attr(feature = "config-file", serde(rename = "tcp"))]
     Tcp,
+    /// Communicate through Unix domain socket.
+    ///
+    /// Address is defined in [`Config`].
+    #[cfg(feature = "uds")]
+    #[cfg_attr(feature = "uds", serde(rename = "uds"))]
+    UnixDomainSocket,
 }
 
 impl fmt::Display for ServerType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg = match self {
+            #[cfg(feature = "tcp")]
             ServerType::Tcp => "TCP",
+            #[cfg(feature = "uds")]
+            ServerType::UnixDomainSocket => "Unix domain socket",
         };
 
         write!(f, "{}", msg)

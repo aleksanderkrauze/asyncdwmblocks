@@ -30,10 +30,22 @@ impl Default for ConfigIpcTcp {
     }
 }
 
+#[cfg(feature = "uds")]
+impl Default for ConfigIpcUnixDomainSocket {
+    fn default() -> Self {
+        Self {
+            addr: PathBuf::from("/tmp/asyncdwmblocks.socket"),
+        }
+    }
+}
+
 #[cfg(feature = "ipc")]
 impl Default for ConfigIpc {
     fn default() -> Self {
         let server_type = {
+            #[cfg(feature = "uds")]
+            let server_type = ServerType::UnixDomainSocket;
+
             #[cfg(feature = "tcp")]
             let server_type = ServerType::Tcp;
 
@@ -44,6 +56,8 @@ impl Default for ConfigIpc {
             server_type,
             #[cfg(feature = "tcp")]
             tcp: ConfigIpcTcp::default(),
+            #[cfg(feature = "uds")]
+            uds: ConfigIpcUnixDomainSocket::default(),
         }
     }
 }

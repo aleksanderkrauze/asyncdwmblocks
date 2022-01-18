@@ -5,9 +5,10 @@
 //! This is automatically enabled when needed and should not be manually selected.
 //!
 //! User selectable:
-//! - `tcp`: Enables IPC through tcp sockets.
+//! - `tcp`: Enables IPC through TCP sockets
+//! - `uds`: Enables IPC through Unix domain sockets
 //! - `config-file`: Enables loading configuration from file. If not present, then
-//! configuration will be created from source code.
+//! configuration will be created from source code
 //!
 //! By default following features are enabled: `tcp`, `config-file`.
 

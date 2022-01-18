@@ -30,7 +30,7 @@ mod defaults;
 
 use std::error::Error;
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[cfg(feature = "config-file")]
@@ -126,6 +126,16 @@ pub struct ConfigIpcTcp {
     pub port: u16,
 }
 
+/// Configuration of Unix domain socket Server/Notifier.
+#[cfg(feature = "uds")]
+#[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "config-file", derive(Deserialize))]
+#[cfg_attr(feature = "config-file", serde(default))]
+pub struct ConfigIpcUnixDomainSocket {
+    /// Address on which Unix domain socket Server/Notier listens on/connects to.
+    pub addr: PathBuf,
+}
+
 /// Configuration for IPC (inter progess cominiucation).
 #[cfg(feature = "ipc")]
 #[derive(Debug, PartialEq, Clone)]
@@ -138,6 +148,9 @@ pub struct ConfigIpc {
     /// Configuration of TCP Server/Notifier.
     #[cfg(feature = "tcp")]
     pub tcp: ConfigIpcTcp,
+    /// Configuration of Unix domain socket Server/Notifier.
+    #[cfg(feature = "uds")]
+    pub uds: ConfigIpcUnixDomainSocket,
 }
 
 /// Main configuration struct.
