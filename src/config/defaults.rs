@@ -42,6 +42,7 @@ impl Default for ConfigIpcUnixDomainSocket {
 #[cfg(feature = "ipc")]
 impl Default for ConfigIpc {
     fn default() -> Self {
+        #[allow(unused_variables)]
         let server_type = {
             #[cfg(feature = "uds")]
             let server_type = ServerType::UnixDomainSocket;

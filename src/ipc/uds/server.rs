@@ -4,7 +4,6 @@ use std::error::Error;
 use std::fmt;
 use std::fs;
 use std::io;
-use std::net::Ipv4Addr;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -52,6 +51,7 @@ impl fmt::Display for UdsServerError {
 
 impl Error for UdsServerError {}
 
+/// Unix domain socket [Server].
 #[derive(Debug, Clone)]
 pub struct UdsServer {
     config: Arc<Config>,
@@ -60,6 +60,10 @@ pub struct UdsServer {
 }
 
 impl UdsServer {
+    /// Creates new Unix domain socket server.
+    ///
+    /// **sender** is a sender half of the channel used to
+    /// communicate that some request was made.
     pub fn new(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>) -> Self {
         Self {
             config,

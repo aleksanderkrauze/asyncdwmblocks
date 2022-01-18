@@ -3,7 +3,6 @@
 use std::error::Error;
 use std::fmt;
 use std::io;
-use std::net::Ipv4Addr;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -50,7 +49,7 @@ impl fmt::Display for UdsNotifierError {
 
 impl Error for UdsNotifierError {}
 
-/// A Unix domain socket Notifier.
+/// Unix domain socket [Notifier].
 #[derive(Debug, PartialEq, Clone)]
 pub struct UdsNotifier {
     config: Arc<Config>,
@@ -98,7 +97,6 @@ mod tests {
     use std::time::SystemTime;
     use tokio::fs;
     use tokio::io::AsyncReadExt;
-    use tokio::net::TcpListener;
     use tokio::net::UnixListener;
 
     #[tokio::test]

@@ -25,7 +25,7 @@
 //! let (server_sender, mut server_receiver) = mpsc::channel(8);
 //! let config = Config::default().arc();
 //!
-//! let server = OpaqueServer::new(server_sender, config);
+//! let mut server = OpaqueServer::new(server_sender, config);
 //!
 //! tokio::spawn(async move {
 //!     // Use server as a normal Server

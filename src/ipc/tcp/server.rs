@@ -70,7 +70,7 @@ impl Error for TcpServerError {}
 /// let (sender, mut receiver) = mpsc::channel(1024);
 /// let (error_sender, mut error_receiver) = oneshot::channel();
 /// let config = Config::default().arc();
-/// let tcp_server = TcpServer::new(sender, config);
+/// let mut tcp_server = TcpServer::new(sender, config);
 ///
 /// tokio::spawn(async move {
 ///     if let Err(e) = tcp_server.run().await {
@@ -109,7 +109,7 @@ pub struct TcpServer {
 }
 
 impl TcpServer {
-    /// Creates a new TCP server.
+    /// Creates new TCP server.
     ///
     /// **sender** is a sender half of the channel used to
     /// communicate that some request was made.
