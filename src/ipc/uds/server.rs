@@ -38,7 +38,15 @@ impl fmt::Display for UdsServerError {
                 let mut msg = format!("io error: {}", err);
 
                 if err.kind() == io::ErrorKind::AddrInUse {
-                    msg.push_str("\nCheck if another program is using it, or if another instance of asyncdwmblocks is already running.");
+                    let s = concat!(
+                        "\n\n",
+                        "Check if another program is using it, ",
+                        "or if another instance of asyncdwmblocks is already running.\n",
+                        "If asyncdwmblocks is not running that means that socket file wasn't ",
+                        "successfully deleted.\n",
+                        "Do it and retry running asyncdwmblocks."
+                    );
+                    msg.push_str(s);
                 }
 
                 msg

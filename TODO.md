@@ -1,10 +1,12 @@
 # TODO list:
 
+ - [ ] Don't end running server, if accepting connection failed.
+ - [ ] use `macro_rules!` to define generic server and notifier tests in `opaque.rs`
  - [ ] Solve problem of leaving Unix domain socket file opened when process is terminated by a signal!
  - [ ] Add D-BUS IPC option
  - [ ] Use `Self::x` in `match self { ... }`
  - [ ] Block sends result though channel
- - [ ] Create patch for dwm
+ - [ ] Create patch for dwm (for clickable blocks)
  - [ ] Add README with instructions on how to build and install this package
  - [ ] Set metadata in Cargo.toml
  - [ ] Upload crate to crates.io
@@ -23,6 +25,7 @@
 
 # Done
 
+ - [x] Add better error messages when Unix domain socket file wasn't unlinked
  - [x] Add Unix domain sockets IPC option
  - [x] Write tests in `ipc::opaque`
  - [x] Write tests to check failing connections in servers and notifiers

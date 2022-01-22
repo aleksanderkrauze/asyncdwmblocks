@@ -36,7 +36,16 @@ impl fmt::Display for UdsNotifierError {
                 let mut msg = format!("io error: {}", err);
 
                 if err.kind() == io::ErrorKind::NotFound {
-                    msg.push_str("\nCheck if you are running asyncdwmblocks.");
+                    msg.push_str("\n\nCheck if you are running asyncdwmblocks.");
+                }
+
+                if err.kind() == io::ErrorKind::ConnectionRefused {
+                    let s = concat!(
+                        "\n\n",
+                        "Socket file was found, but no server (asyncdwmblocks) is binded to it.\n",
+                        "Try running asyncdwmblocks first."
+                    );
+                    msg.push_str(s);
                 }
 
                 msg
