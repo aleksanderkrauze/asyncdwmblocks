@@ -239,6 +239,65 @@ mod tests {
     use tokio::net::{TcpListener, TcpStream, UnixListener, UnixStream};
     use tokio::sync::mpsc;
 
+    macro_rules! opaque_server {
+        ($config:expr, $stream_type:ty, $connect_value:expr) => {
+            let (sender, mut receiver) = mpsc::channel(8);
+            let messages = vec![
+                BlockRefreshMessage::new("block1".into(), BlockRunMode::Normal),
+                BlockRefreshMessage::new("block2".into(), BlockRunMode::Button(1)),
+                BlockRefreshMessage::new("block3".into(), BlockRunMode::Button(3)),
+                BlockRefreshMessage::new("block4".into(), BlockRunMode::Button(4)),
+            ];
+            let expected_messages = messages.clone();
+
+            let mut server = OpaqueServer::new(sender, Arc::clone(&$config));
+            tokio::spawn(async move {
+                let _ = server.run().await;
+            });
+
+            tokio::spawn(async move {
+                let mut stream = <$stream_type>::connect($connect_value).await.unwrap();
+
+                let frames: Frames = messages.into_iter().map(Frame::from).collect();
+                let data = frames.encode();
+
+                stream.write_all(data.as_slice()).await.unwrap();
+            });
+
+            assert_eq!(receiver.recv().await.unwrap(), expected_messages[0]);
+            assert_eq!(receiver.recv().await.unwrap(), expected_messages[1]);
+            assert_eq!(receiver.recv().await.unwrap(), expected_messages[2]);
+            assert_eq!(receiver.recv().await.unwrap(), expected_messages[3]);
+        };
+    }
+
+    macro_rules! opaque_notifier {
+        ($config:expr, $listener:expr) => {
+            let messages = vec![
+                BlockRefreshMessage::new("block1".into(), BlockRunMode::Normal),
+                BlockRefreshMessage::new("block2".into(), BlockRunMode::Button(1)),
+                BlockRefreshMessage::new("block3".into(), BlockRunMode::Button(3)),
+                BlockRefreshMessage::new("block4".into(), BlockRunMode::Button(4)),
+            ];
+            let expected_messages: Frames = messages.clone().into_iter().map(Frame::from).collect();
+
+            let mut notifier = OpaqueNotifier::new(Arc::clone(&$config));
+            tokio::spawn(async move {
+                for message in messages {
+                    notifier.push_message(message);
+                }
+                notifier.send_messages().await.unwrap();
+            });
+
+            let mut buff = Vec::new();
+            let (mut stream, _) = $listener.accept().await.unwrap();
+            stream.read_to_end(&mut buff).await.unwrap();
+            let frames = Frames::from(buff.as_slice());
+
+            assert_eq!(frames, expected_messages);
+        };
+    }
+
     #[cfg(feature = "tcp")]
     #[tokio::test]
     async fn opaque_server_tcp() {
@@ -252,35 +311,11 @@ mod tests {
         }
         .arc();
 
-        let (sender, mut receiver) = mpsc::channel(8);
-        let messages = vec![
-            BlockRefreshMessage::new("block1".into(), BlockRunMode::Normal),
-            BlockRefreshMessage::new("block2".into(), BlockRunMode::Button(1)),
-            BlockRefreshMessage::new("block3".into(), BlockRunMode::Button(3)),
-            BlockRefreshMessage::new("block4".into(), BlockRunMode::Button(4)),
-        ];
-        let expected_messages = messages.clone();
-
-        let mut server = OpaqueServer::new(sender, Arc::clone(&config));
-        tokio::spawn(async move {
-            let _ = server.run().await;
-        });
-
-        tokio::spawn(async move {
-            let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, config.ipc.tcp.port))
-                .await
-                .unwrap();
-
-            let frames: Frames = messages.into_iter().map(Frame::from).collect();
-            let data = frames.encode();
-
-            stream.write_all(data.as_slice()).await.unwrap();
-        });
-
-        assert_eq!(receiver.recv().await.unwrap(), expected_messages[0]);
-        assert_eq!(receiver.recv().await.unwrap(), expected_messages[1]);
-        assert_eq!(receiver.recv().await.unwrap(), expected_messages[2]);
-        assert_eq!(receiver.recv().await.unwrap(), expected_messages[3]);
+        opaque_server!(
+            config,
+            TcpStream,
+            (Ipv4Addr::LOCALHOST, config.ipc.tcp.port)
+        );
     }
 
     #[cfg(feature = "uds")]
@@ -303,33 +338,7 @@ mod tests {
         }
         .arc();
 
-        let (sender, mut receiver) = mpsc::channel(8);
-        let messages = vec![
-            BlockRefreshMessage::new("block1".into(), BlockRunMode::Normal),
-            BlockRefreshMessage::new("block2".into(), BlockRunMode::Button(1)),
-            BlockRefreshMessage::new("block3".into(), BlockRunMode::Button(3)),
-            BlockRefreshMessage::new("block4".into(), BlockRunMode::Button(4)),
-        ];
-        let expected_messages = messages.clone();
-
-        let mut server = OpaqueServer::new(sender, Arc::clone(&config));
-        tokio::spawn(async move {
-            let _ = server.run().await;
-        });
-
-        tokio::spawn(async move {
-            let mut stream = UnixStream::connect(&config.ipc.uds.addr).await.unwrap();
-
-            let frames: Frames = messages.into_iter().map(Frame::from).collect();
-            let data = frames.encode();
-
-            stream.write_all(data.as_slice()).await.unwrap();
-        });
-
-        assert_eq!(receiver.recv().await.unwrap(), expected_messages[0]);
-        assert_eq!(receiver.recv().await.unwrap(), expected_messages[1]);
-        assert_eq!(receiver.recv().await.unwrap(), expected_messages[2]);
-        assert_eq!(receiver.recv().await.unwrap(), expected_messages[3]);
+        opaque_server!(config, UnixStream, &config.ipc.uds.addr);
     }
 
     #[tokio::test]
@@ -345,31 +354,12 @@ mod tests {
         }
         .arc();
 
-        let messages = vec![
-            BlockRefreshMessage::new("block1".into(), BlockRunMode::Normal),
-            BlockRefreshMessage::new("block2".into(), BlockRunMode::Button(1)),
-            BlockRefreshMessage::new("block3".into(), BlockRunMode::Button(3)),
-            BlockRefreshMessage::new("block4".into(), BlockRunMode::Button(4)),
-        ];
-        let expected_messages: Frames = messages.clone().into_iter().map(Frame::from).collect();
-
-        let mut notifier = OpaqueNotifier::new(Arc::clone(&config));
-        tokio::spawn(async move {
-            for message in messages {
-                notifier.push_message(message);
-            }
-            notifier.send_messages().await.unwrap();
-        });
-
-        let mut buff = Vec::new();
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, config.ipc.tcp.port))
-            .await
-            .unwrap();
-        let (mut stream, _) = listener.accept().await.unwrap();
-        stream.read_to_end(&mut buff).await.unwrap();
-        let frames = Frames::from(buff.as_slice());
-
-        assert_eq!(frames, expected_messages);
+        opaque_notifier!(
+            config,
+            TcpListener::bind((Ipv4Addr::LOCALHOST, config.ipc.tcp.port))
+                .await
+                .unwrap()
+        );
     }
 
     #[tokio::test]
@@ -392,30 +382,6 @@ mod tests {
         }
         .arc();
 
-        let messages = vec![
-            BlockRefreshMessage::new("block1".into(), BlockRunMode::Normal),
-            BlockRefreshMessage::new("block2".into(), BlockRunMode::Button(1)),
-            BlockRefreshMessage::new("block3".into(), BlockRunMode::Button(3)),
-            BlockRefreshMessage::new("block4".into(), BlockRunMode::Button(4)),
-        ];
-        let expected_messages: Frames = messages.clone().into_iter().map(Frame::from).collect();
-
-        let mut notifier = OpaqueNotifier::new(Arc::clone(&config));
-        tokio::spawn(async move {
-            for message in messages {
-                notifier.push_message(message);
-            }
-            notifier.send_messages().await.unwrap();
-        });
-
-        let mut buff = Vec::new();
-        let listener = UnixListener::bind(&config.ipc.uds.addr).unwrap();
-        let (mut stream, _) = listener.accept().await.unwrap();
-        stream.read_to_end(&mut buff).await.unwrap();
-        let frames = Frames::from(buff.as_slice());
-
-        fs::remove_file(&config.ipc.uds.addr).unwrap();
-
-        assert_eq!(frames, expected_messages);
+        opaque_notifier!(config, UnixListener::bind(&config.ipc.uds.addr).unwrap());
     }
 }
