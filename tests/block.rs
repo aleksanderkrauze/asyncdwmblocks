@@ -36,3 +36,17 @@ async fn run_mode_button_changed_env_variable() {
     block.run(BlockRunMode::Button(3)).await.unwrap();
     assert_eq!(block.result(), Some(&String::from("3")));
 }
+
+#[tokio::test]
+async fn filter_out_null_chars() {
+    let config = Config::default().arc();
+    let mut block = Block::new(
+        "./tests/assets/echo_null_char.sh".into(),
+        vec![],
+        None,
+        config,
+    );
+
+    block.run(BlockRunMode::Normal).await.unwrap();
+    assert_eq!(block.result(), Some(&String::from("ABC123")));
+}

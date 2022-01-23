@@ -1,6 +1,5 @@
 # TODO list:
 
- - [ ] What to do if in block's output is `'\0'`? It will cause `X11Connection::set_root_name` to panic!
  - [ ] Add option to use "Linux Abstract Socket Namespace" when target is Linux.
  - [ ] Add D-BUS IPC option
  - [ ] Block sends result though channel
@@ -22,6 +21,7 @@
 
 # Done
 
+ - [x] Filter out `\u{0}` chars from Block's output
  - [x] Use *norun* in tests
  - [x] Use `Self::x` in `match self { ... }`
  - [x] Solve problem of leaving Unix domain socket file opened when process is terminated by a signal!

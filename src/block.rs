@@ -229,7 +229,8 @@ impl Block {
     /// variable `$BUTTON` should be set.
     ///
     /// If succeeded it takes characters from command's output (stdout) up to first
-    /// newline character and then sets it as a inner result.
+    /// newline character and then sets it as a inner result. It also filters out `\u{0}`
+    /// characters.
     ///
     /// # Example
     /// ```no_run
@@ -272,6 +273,7 @@ impl Block {
         self.result = Some(
             String::from_utf8_lossy(&output)
                 .chars()
+                .filter(|c| c != &'\u{0}')
                 .take_while(|c| c != &'\n')
                 .collect(),
         );
