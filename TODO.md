@@ -1,9 +1,11 @@
 # TODO list:
 
- - [ ] Add option to use "Linux Abstract Socket Namespace" when target is Linux.
- - [ ] Don't end running server, if accepting connection failed.
- - [ ] Add D-BUS IPC option
  - [ ] Use `Self::x` in `match self { ... }`
+ - [ ] Don't end running server, if accepting connection failed.
+ - [ ] Use *norun* in tests
+ - [ ] What to do if in block's output is `'\0'`? It will cause `X11Connection::set_root_name` to panic!
+ - [ ] Add option to use "Linux Abstract Socket Namespace" when target is Linux.
+ - [ ] Add D-BUS IPC option
  - [ ] Block sends result though channel
  - [ ] Create patch for dwm (for clickable blocks)
  - [ ] Add README with instructions on how to build and install this package
@@ -11,8 +13,6 @@
  - [ ] Upload crate to crates.io
  - [ ] Write documentation for asyncdwmblocks library (lib.rs file)
  - [ ] Add option to daemonize asyncdwmblocks (bin)
- - [ ] Use *norun* in tests
- - [ ] What to do if in block's output is `'\0'`? It will cause `X11Connection::set_root_name` to panic!
  - [ ] In config file parse ~ as $HOME and possibly parse env variables
 
 # Idea

@@ -235,6 +235,7 @@ impl Notifier for OpaqueNotifier {
 
 #[cfg(test)]
 #[allow(unused_imports)]
+#[allow(clippy::needless_update)]
 mod tests {
     use super::*;
     use crate::{

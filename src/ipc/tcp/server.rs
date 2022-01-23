@@ -146,6 +146,7 @@ impl Server for TcpServer {
 }
 
 #[cfg(test)]
+#[allow(clippy::needless_update)]
 mod tests {
     use super::*;
     use crate::block::BlockRunMode;
