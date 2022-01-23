@@ -91,9 +91,9 @@ impl fmt::Display for ServerType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg = match self {
             #[cfg(feature = "tcp")]
-            ServerType::Tcp => "TCP",
+            Self::Tcp => "TCP",
             #[cfg(feature = "uds")]
-            ServerType::UnixDomainSocket => "Unix domain socket",
+            Self::UnixDomainSocket => "Unix domain socket",
         };
 
         write!(f, "{}", msg)

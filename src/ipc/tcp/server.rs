@@ -34,7 +34,7 @@ impl From<io::Error> for TcpServerError {
 impl fmt::Display for TcpServerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg: String = match self {
-            TcpServerError::IO(err) => {
+            Self::IO(err) => {
                 let mut msg = format!("io error: {}", err);
 
                 if err.kind() == io::ErrorKind::AddrInUse {

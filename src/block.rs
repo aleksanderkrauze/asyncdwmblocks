@@ -67,9 +67,9 @@ pub enum BlockRunError {
 impl fmt::Display for BlockRunError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg = match self {
-            BlockRunError::CommandError(e) => e.to_string(),
-            BlockRunError::JoinError(e) => e.to_string(),
-            BlockRunError::ChannelClosed => "Channel was closed".to_string(),
+            Self::CommandError(e) => e.to_string(),
+            Self::JoinError(e) => e.to_string(),
+            Self::ChannelClosed => "Channel was closed".to_string(),
         };
 
         write!(f, "{}", msg)
@@ -103,8 +103,8 @@ impl BlockRunError {
     /// as this means that either tokio or this program failed.
     pub fn is_internal(&self) -> bool {
         match self {
-            BlockRunError::JoinError(_) | BlockRunError::ChannelClosed => true,
-            BlockRunError::CommandError(_) => false,
+            Self::JoinError(_) | BlockRunError::ChannelClosed => true,
+            Self::CommandError(_) => false,
         }
     }
 
@@ -115,8 +115,8 @@ impl BlockRunError {
     /// permissions to run a script, `$PATH` being wrongly set, etc.
     pub fn is_io(&self) -> bool {
         match self {
-            BlockRunError::JoinError(_) | BlockRunError::ChannelClosed => false,
-            BlockRunError::CommandError(_) => true,
+            Self::JoinError(_) | BlockRunError::ChannelClosed => false,
+            Self::CommandError(_) => true,
         }
     }
 }
@@ -157,8 +157,8 @@ impl BlockRunMode {
     /// Gets `$BUTTON` number or `None` if self is [BlockRunMode::Normal].
     pub fn button(&self) -> Option<u8> {
         match self {
-            BlockRunMode::Button(b) => Some(*b),
-            BlockRunMode::Normal => None,
+            Self::Button(b) => Some(*b),
+            Self::Normal => None,
         }
     }
 }

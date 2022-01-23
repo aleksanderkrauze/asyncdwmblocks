@@ -147,9 +147,9 @@ impl Server for OpaqueServer {
     async fn run(&mut self) -> Result<(), Self::Error> {
         match self {
             #[cfg(feature = "tcp")]
-            OpaqueServer::Tcp(server) => server.run().await.map_err(Self::Error::from),
+            Self::Tcp(server) => server.run().await.map_err(Self::Error::from),
             #[cfg(feature = "uds")]
-            OpaqueServer::UnixDomainSocket(server) => server.run().await.map_err(Self::Error::from),
+            Self::UnixDomainSocket(server) => server.run().await.map_err(Self::Error::from),
         }
     }
 }
@@ -213,20 +213,18 @@ impl Notifier for OpaqueNotifier {
     fn push_message(&mut self, message: BlockRefreshMessage) {
         match self {
             #[cfg(feature = "tcp")]
-            OpaqueNotifier::Tcp(notifier) => notifier.push_message(message),
+            Self::Tcp(notifier) => notifier.push_message(message),
             #[cfg(feature = "uds")]
-            OpaqueNotifier::UnixDomainSocket(notifier) => notifier.push_message(message),
+            Self::UnixDomainSocket(notifier) => notifier.push_message(message),
         }
     }
 
     async fn send_messages(self) -> Result<(), Self::Error> {
         match self {
             #[cfg(feature = "tcp")]
-            OpaqueNotifier::Tcp(notifier) => {
-                notifier.send_messages().await.map_err(Self::Error::from)
-            }
+            Self::Tcp(notifier) => notifier.send_messages().await.map_err(Self::Error::from),
             #[cfg(feature = "uds")]
-            OpaqueNotifier::UnixDomainSocket(notifier) => {
+            Self::UnixDomainSocket(notifier) => {
                 notifier.send_messages().await.map_err(Self::Error::from)
             }
         }

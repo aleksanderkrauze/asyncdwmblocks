@@ -32,7 +32,7 @@ impl From<io::Error> for UdsNotifierError {
 impl fmt::Display for UdsNotifierError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg = match self {
-            UdsNotifierError::IO(err) => {
+            Self::IO(err) => {
                 let mut msg = format!("io error: {}", err);
 
                 if err.kind() == io::ErrorKind::NotFound {

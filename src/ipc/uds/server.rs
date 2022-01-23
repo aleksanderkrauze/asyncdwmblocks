@@ -37,7 +37,7 @@ impl From<io::Error> for UdsServerError {
 impl fmt::Display for UdsServerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg: String = match self {
-            UdsServerError::IO(err) => {
+            Self::IO(err) => {
                 let mut msg = format!("io error: {}", err);
 
                 if err.kind() == io::ErrorKind::AddrInUse {

@@ -81,7 +81,7 @@ impl Frame {
     /// Encodes `Frame` into `Vec<u8>`.
     pub fn encode(&self) -> Vec<u8> {
         match self {
-            Frame::Message(msg) => {
+            Self::Message(msg) => {
                 let s = match msg {
                     BlockRefreshMessage {
                         name,
@@ -98,7 +98,7 @@ impl Frame {
                 };
                 Vec::from(s.as_bytes())
             }
-            Frame::Error => Vec::new(),
+            Self::Error => Vec::new(),
         }
     }
 }

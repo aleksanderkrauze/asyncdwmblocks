@@ -33,7 +33,7 @@ impl From<io::Error> for TcpNotifierError {
 impl fmt::Display for TcpNotifierError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg = match self {
-            TcpNotifierError::IO(err) => {
+            Self::IO(err) => {
                 let mut msg = format!("io error: {}", err);
 
                 if err.kind() == io::ErrorKind::ConnectionRefused {
