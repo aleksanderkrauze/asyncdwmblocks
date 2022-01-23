@@ -83,7 +83,7 @@ pub enum ServerType {
     ///
     /// Address is defined in [`Config`](crate::config::Config).
     #[cfg(feature = "uds")]
-    #[cfg_attr(feature = "uds", serde(rename = "uds"))]
+    #[cfg_attr(feature = "config-file", serde(rename = "uds"))]
     UnixDomainSocket,
 }
 
