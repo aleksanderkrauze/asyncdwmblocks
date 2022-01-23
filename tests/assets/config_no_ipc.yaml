@@ -15,10 +15,3 @@ statusbar:
 
 block:
   clicked_env_variable: BTN
-
-ipc:
-  type: tcp
-  tcp:
-    port: 44005
-  uds:
-    addr: /home/username/.local/share/asyncdwmblocks/asyncdwmblocks.socket

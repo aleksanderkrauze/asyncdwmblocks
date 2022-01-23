@@ -1,0 +1,4 @@
+ipc:
+  type: uds
+  uds:
+    addr: /home/username/.local/share/asyncdwmblocks/asyncdwmblocks.socket

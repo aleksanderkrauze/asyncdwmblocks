@@ -1,0 +1,4 @@
+ipc:
+  type: tcp
+  tcp:
+    port: 44005

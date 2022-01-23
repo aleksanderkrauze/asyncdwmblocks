@@ -1,3 +1,4 @@
+#![cfg(feature = "config-file")]
 #![allow(unused_imports)]
 
 use std::env;
@@ -10,10 +11,9 @@ use asyncdwmblocks::config::{self, Config};
 #[cfg(feature = "ipc")]
 use asyncdwmblocks::ipc::ServerType;
 
-#[cfg(feature = "config-file")]
 #[tokio::test]
-async fn load_full_configuration() {
-    let config = Config::load_from_file("./tests/assets/full_config.yaml")
+async fn load_configuration_no_ipc() {
+    let config = Config::load_from_file("./tests/assets/config_no_ipc.yaml")
         .await
         .unwrap();
 
@@ -43,23 +43,33 @@ async fn load_full_configuration() {
     );
 
     assert_eq!(config.block.clicked_env_variable, String::from("BTN"));
-
-    #[cfg(feature = "tcp")]
-    {
-        assert_eq!(config.ipc.server_type, ServerType::Tcp);
-        assert_eq!(config.ipc.tcp.port, 44005);
-    }
-
-    #[cfg(feature = "uds")]
-    {
-        assert_eq!(
-            config.ipc.uds.addr,
-            PathBuf::from("/home/username/.local/share/asyncdwmblocks/asyncdwmblocks.socket")
-        );
-    }
 }
 
-#[cfg(feature = "config-file")]
+#[cfg(feature = "tcp")]
+#[tokio::test]
+async fn load_configuration_tcp() {
+    let config = Config::load_from_file("./tests/assets/config_tcp.yaml")
+        .await
+        .unwrap();
+
+    assert_eq!(config.ipc.server_type, ServerType::Tcp);
+    assert_eq!(config.ipc.tcp.port, 44005);
+}
+
+#[cfg(feature = "uds")]
+#[tokio::test]
+async fn load_configuration_uds() {
+    let config = Config::load_from_file("./tests/assets/config_uds.yaml")
+        .await
+        .unwrap();
+
+    assert_eq!(config.ipc.server_type, ServerType::UnixDomainSocket);
+    assert_eq!(
+        config.ipc.uds.addr,
+        PathBuf::from("/home/username/.local/share/asyncdwmblocks/asyncdwmblocks.socket")
+    );
+}
+
 rusty_fork_test! {
     #[test]
     fn get_config_xdg() {
@@ -73,7 +83,6 @@ rusty_fork_test! {
     }
 }
 
-#[cfg(feature = "config-file")]
 rusty_fork_test! {
     #[test]
     fn get_config_home() {
@@ -89,7 +98,6 @@ rusty_fork_test! {
     }
 }
 
-#[cfg(feature = "config-file")]
 rusty_fork_test! {
     #[test]
     fn get_config_default() {
@@ -103,11 +111,4 @@ rusty_fork_test! {
             assert_eq!(config, Config::default());
         });
     }
-}
-
-#[cfg(not(feature = "config-file"))]
-#[tokio::test]
-async fn get_config_returned_defaut_config_on_config_file_feature_disabled() {
-    let config = Config::get_config().await.unwrap();
-    assert_eq!(config, Config::default());
 }
