@@ -15,7 +15,7 @@
 //! Example usage of `OpaqueServer`:
 //!
 //! ```
-//! use tokio::sync::mpsc;
+//! use tokio::sync::{broadcast, mpsc};
 //! use asyncdwmblocks::config::Config;
 //! use asyncdwmblocks::statusbar::BlockRefreshMessage;
 //! use asyncdwmblocks::ipc::{OpaqueServer, Server};
@@ -23,9 +23,10 @@
 //! # #[tokio::main]
 //! # async fn _main() {
 //! let (server_sender, mut server_receiver) = mpsc::channel(8);
+//! let (_, termination_signal_receiver) = broadcast::channel::<()>(8);
 //! let config = Config::default().arc();
 //!
-//! let mut server = OpaqueServer::new(server_sender, config);
+//! let mut server = OpaqueServer::new(server_sender, termination_signal_receiver, config);
 //!
 //! tokio::spawn(async move {
 //!     // Use server as a normal Server
@@ -65,7 +66,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc};
 
 use super::{Notifier, Server, ServerType};
 use crate::config::Config;
@@ -103,7 +104,10 @@ impl From<uds::server::UdsServerError> for OpaqueServerError {
 }
 
 /// Abstraction over [Servers](Server).
-#[derive(Debug, Clone)]
+///
+/// This enum doesn't implement `Clone`, because one of it's
+/// servers (UdsServer) doesn't do it as well.
+#[derive(Debug)]
 pub enum OpaqueServer {
     /// TcpServer variant.
     #[cfg(feature = "tcp")]
@@ -114,16 +118,24 @@ pub enum OpaqueServer {
 }
 
 impl OpaqueServer {
-    /// Creates new `OpaqueServer` from configuration and sending half of a channel.
-    pub fn new(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>) -> Self {
+    /// Creates new `OpaqueServer` from configuration, sending half of a channel and
+    /// a receiver for process termination by a signal.
+    #[allow(unused_variables)] // In some features combination some input parameters won't be used
+    pub fn new(
+        sender: mpsc::Sender<BlockRefreshMessage>,
+        termination_signal_receiver: broadcast::Receiver<()>,
+        config: Arc<Config>,
+    ) -> Self {
         let server_type = config.ipc.server_type;
         match server_type {
             #[cfg(feature = "tcp")]
             ServerType::Tcp => OpaqueServer::Tcp(tcp::TcpServer::new(sender, config)),
             #[cfg(feature = "uds")]
-            ServerType::UnixDomainSocket => {
-                OpaqueServer::UnixDomainSocket(uds::UdsServer::new(sender, config))
-            }
+            ServerType::UnixDomainSocket => OpaqueServer::UnixDomainSocket(uds::UdsServer::new(
+                sender,
+                termination_signal_receiver,
+                config,
+            )),
         }
     }
 }
@@ -237,11 +249,12 @@ mod tests {
     use std::time::SystemTime;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::{TcpListener, TcpStream, UnixListener, UnixStream};
-    use tokio::sync::mpsc;
+    use tokio::sync::{broadcast, mpsc};
 
     macro_rules! opaque_server {
         ($config:expr, $stream_type:ty, $connect_value:expr) => {
             let (sender, mut receiver) = mpsc::channel(8);
+            let (_, termination_signal_receiver) = broadcast::channel(8);
             let messages = vec![
                 BlockRefreshMessage::new("block1".into(), BlockRunMode::Normal),
                 BlockRefreshMessage::new("block2".into(), BlockRunMode::Button(1)),
@@ -250,7 +263,8 @@ mod tests {
             ];
             let expected_messages = messages.clone();
 
-            let mut server = OpaqueServer::new(sender, Arc::clone(&$config));
+            let mut server =
+                OpaqueServer::new(sender, termination_signal_receiver, Arc::clone(&$config));
             tokio::spawn(async move {
                 let _ = server.run().await;
             });
@@ -383,5 +397,7 @@ mod tests {
         .arc();
 
         opaque_notifier!(config, UnixListener::bind(&config.ipc.uds.addr).unwrap());
+
+        fs::remove_file(&config.ipc.uds.addr).unwrap();
     }
 }

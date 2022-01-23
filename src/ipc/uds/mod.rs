@@ -22,7 +22,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
     use std::time::SystemTime;
-    use tokio::sync::mpsc;
+    use tokio::sync::{broadcast, mpsc};
 
     #[tokio::test]
     async fn server_and_notifier() {
@@ -44,6 +44,7 @@ mod tests {
         .arc();
 
         let (sender, mut receiver) = mpsc::channel(8);
+        let (_, termination_signal_receiver) = broadcast::channel(8);
         let messages = vec![
             BlockRefreshMessage::new("block1".into(), BlockRunMode::Normal),
             BlockRefreshMessage::new("block2".into(), BlockRunMode::Button(1)),
@@ -52,7 +53,7 @@ mod tests {
         ];
         let expected_messages = messages.clone();
 
-        let mut server = UdsServer::new(sender, Arc::clone(&config));
+        let mut server = UdsServer::new(sender, termination_signal_receiver, Arc::clone(&config));
         tokio::spawn(async move {
             server.run().await.unwrap();
         });

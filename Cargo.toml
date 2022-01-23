@@ -22,7 +22,7 @@ default = ["uds", "tcp", "config-file"]
 
 [dependencies]
 futures = { version = "0.3", default-features = false, features = ["std"] }
-tokio = { version = "1.15", features = ["time", "sync", "process", "macros", "rt-multi-thread", "parking_lot"]}
+tokio = { version = "1.15", features = ["time", "sync", "process", "macros", "rt-multi-thread", "parking_lot", "signal"]}
 x11-dl = "2.19"
 
 [dependencies.async-trait]

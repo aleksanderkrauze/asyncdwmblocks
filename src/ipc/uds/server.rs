@@ -9,7 +9,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::io::AsyncReadExt;
 use tokio::net::UnixListener;
-use tokio::sync::mpsc::{self, Sender};
+use tokio::sync::{
+    broadcast::{self, error::RecvError},
+    mpsc,
+};
 
 use super::{
     frame::{Frame, Frames},
@@ -71,10 +74,21 @@ impl UdsServerError {
 }
 
 /// Unix domain socket [Server].
-#[derive(Debug, Clone)]
+///
+/// This server, once started running, will continuously do so
+/// until an error will occur or termination signal was sent by
+/// it's caller. It implements Drop, where it unlinks socket file
+/// from the filesystem. If Drop doesn't run, then this socket file
+/// will remain in the system and prevent other instances of asyncdwmblocks
+/// to be run.
+///
+/// This server doesn't implement `Clone`, because tokio's
+/// [broadcast::Receiver] doesn't implement it.
+#[derive(Debug)]
 pub struct UdsServer {
     config: Arc<Config>,
-    sender: Sender<BlockRefreshMessage>,
+    sender: mpsc::Sender<BlockRefreshMessage>,
+    termination_signal_receiver: broadcast::Receiver<()>,
     binded: bool,
 }
 
@@ -83,10 +97,19 @@ impl UdsServer {
     ///
     /// **sender** is a sender half of the channel used to
     /// communicate that some request was made.
-    pub fn new(sender: mpsc::Sender<BlockRefreshMessage>, config: Arc<Config>) -> Self {
+    ///
+    /// **termination_signal_receiver** is a receiver that gets
+    /// notified when a OS signal was sent to this process
+    /// (done by the caller).
+    pub fn new(
+        sender: mpsc::Sender<BlockRefreshMessage>,
+        termination_signal_receiver: broadcast::Receiver<()>,
+        config: Arc<Config>,
+    ) -> Self {
         Self {
             config,
             sender,
+            termination_signal_receiver,
             binded: false,
         }
     }
@@ -107,7 +130,23 @@ impl Server for UdsServer {
                     let (stream, _) = accepted_stream?;
                     stream
                 }
-                _ = cancelation_receiver.recv() => break
+                _ = cancelation_receiver.recv() => break,
+                sig = self.termination_signal_receiver.recv() => {
+                    // When we receive a termination signal we want to run
+                    // cleanup code (unlinking socket file). We break from
+                    // this loop and then return Ok(()) which will then in
+                    // our caller run drop(server), where we perform cleanup.
+                    match sig {
+                        // Received signal, "terminate"
+                        Ok(()) => break,
+                        // If we lagged (which is very unlikely) then at least one
+                        // signal was sent, "terminate"
+                        Err(RecvError::Lagged(_)) => break,
+                        // If channel is closed our caller does something strange.
+                        // Ignore this
+                        Err(RecvError::Closed) => continue,
+                    }
+                }
             };
 
             let cancelation_sender = cancelation_sender.clone();
@@ -177,7 +216,7 @@ mod tests {
     use std::time::SystemTime;
     use tokio::io::AsyncWriteExt;
     use tokio::net::UnixStream;
-    use tokio::sync::mpsc::channel;
+    use tokio::sync::oneshot;
     use tokio::time;
 
     #[tokio::test]
@@ -189,7 +228,7 @@ mod tests {
             timestamp
         ));
 
-        let (sender, mut receiver) = channel(8);
+        let (sender, mut receiver) = mpsc::channel(8);
         let config = Config {
             ipc: config::ConfigIpc {
                 server_type: ServerType::UnixDomainSocket,
@@ -200,7 +239,9 @@ mod tests {
         }
         .arc();
 
-        let mut server = UdsServer::new(sender, Arc::clone(&config));
+        let (_, termination_signal_receiver) = broadcast::channel(8);
+
+        let mut server = UdsServer::new(sender, termination_signal_receiver, Arc::clone(&config));
         tokio::spawn(async move {
             let _ = server.run().await;
         });
@@ -233,8 +274,8 @@ mod tests {
             timestamp
         ));
 
-        let (sender1, _) = channel(8);
-        let (sender2, _) = channel(8);
+        let (sender1, _) = mpsc::channel(8);
+        let (sender2, _) = mpsc::channel(8);
 
         let config = Config {
             ipc: config::ConfigIpc {
@@ -246,14 +287,18 @@ mod tests {
         }
         .arc();
 
-        let mut server1 = UdsServer::new(sender1, Arc::clone(&config));
+        let (termination_signal_sender, termination_signal_receiver) = broadcast::channel(8);
+        let termination_signal_receiver2 = termination_signal_sender.subscribe();
+
+        let mut server1 = UdsServer::new(sender1, termination_signal_receiver, Arc::clone(&config));
         tokio::spawn(async move {
             let _ = server1.run().await;
         });
 
         time::sleep(time::Duration::from_millis(100)).await;
 
-        let mut server2 = UdsServer::new(sender2, Arc::clone(&config));
+        let mut server2 =
+            UdsServer::new(sender2, termination_signal_receiver2, Arc::clone(&config));
         let s = server2.run().await;
 
         assert!(s.is_err());
@@ -261,5 +306,77 @@ mod tests {
             s.unwrap_err().into_io_error().unwrap().kind(),
             io::ErrorKind::AddrInUse
         );
+    }
+
+    #[tokio::test]
+    async fn uds_server_cleanup_on_drop() {
+        let timestamp: DateTime<Utc> = DateTime::from(SystemTime::now());
+        let timestamp = timestamp.format("%s").to_string();
+        let addr = PathBuf::from(format!(
+            "/tmp/asyncdwmblocks_test-server-cleanup-on-drop-{}.socket",
+            timestamp
+        ));
+
+        let (sender, _) = mpsc::channel(8);
+        let config = Config {
+            ipc: config::ConfigIpc {
+                server_type: ServerType::UnixDomainSocket,
+                uds: config::ConfigIpcUnixDomainSocket { addr },
+                ..config::ConfigIpc::default()
+            },
+            ..Config::default()
+        }
+        .arc();
+
+        let (_, termination_signal_receiver) = broadcast::channel(8);
+        let (terminate_sender, mut terminate_receiver) = oneshot::channel::<()>();
+
+        let mut server = UdsServer::new(sender, termination_signal_receiver, Arc::clone(&config));
+        let handle = tokio::spawn(async move {
+            tokio::select! {
+                _ = server.run() => {},
+                _ = &mut terminate_receiver => {},
+            }
+        });
+
+        time::sleep(time::Duration::from_millis(100)).await;
+        terminate_sender.send(()).unwrap();
+        handle.await.unwrap();
+
+        assert!(!&config.ipc.uds.addr.exists());
+    }
+
+    #[tokio::test]
+    async fn uds_server_cleanup_on_termination_signal() {
+        let timestamp: DateTime<Utc> = DateTime::from(SystemTime::now());
+        let timestamp = timestamp.format("%s").to_string();
+        let addr = PathBuf::from(format!(
+            "/tmp/asyncdwmblocks_test-server-cleanup-on-signal-{}.socket",
+            timestamp
+        ));
+
+        let (sender, _) = mpsc::channel(8);
+        let config = Config {
+            ipc: config::ConfigIpc {
+                server_type: ServerType::UnixDomainSocket,
+                uds: config::ConfigIpcUnixDomainSocket { addr },
+                ..config::ConfigIpc::default()
+            },
+            ..Config::default()
+        }
+        .arc();
+
+        let (termination_signal_sender, termination_signal_receiver) = broadcast::channel(8);
+
+        let mut server = UdsServer::new(sender, termination_signal_receiver, Arc::clone(&config));
+        let handle = tokio::spawn(async move {
+            server.run().await.unwrap();
+        });
+
+        time::sleep(time::Duration::from_millis(100)).await;
+        termination_signal_sender.send(()).unwrap();
+        handle.await.unwrap();
+
+        assert!(!&config.ipc.uds.addr.exists());
     }
 }

@@ -1,7 +1,7 @@
 # TODO list:
 
+ - [ ] Add option to use "Linux Abstract Socket Namespace" when target is Linux.
  - [ ] Don't end running server, if accepting connection failed.
- - [ ] Solve problem of leaving Unix domain socket file opened when process is terminated by a signal!
  - [ ] Add D-BUS IPC option
  - [ ] Use `Self::x` in `match self { ... }`
  - [ ] Block sends result though channel
@@ -24,6 +24,7 @@
 
 # Done
 
+ - [x] Solve problem of leaving Unix domain socket file opened when process is terminated by a signal!
  - [x] use `macro_rules!` to define generic server and notifier tests in `opaque.rs`
  - [x] Add better error messages when Unix domain socket file wasn't unlinked
  - [x] Add Unix domain sockets IPC option
