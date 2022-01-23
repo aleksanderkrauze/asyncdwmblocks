@@ -12,14 +12,12 @@
 /// ```
 /// use asyncdwmblocks::utils::SplitAtRN;
 ///
-/// # fn main() {
 /// let bytes = b"Robin Hood\r\nLittle John\r\nSherif of Notthingham";
 /// let mut sherwood_company = SplitAtRN::new(bytes);
 ///
 /// assert_eq!(sherwood_company.next(), Some(b"Robin Hood".as_slice()));
 /// assert_eq!(sherwood_company.next(), Some(b"Little John".as_slice()));
 /// assert_eq!(sherwood_company.next(), None); // bytes were not ended by `b"\r\n"`!
-/// # }
 /// ```
 #[derive(Debug, PartialEq, Clone)]
 pub struct SplitAtRN<'a> {

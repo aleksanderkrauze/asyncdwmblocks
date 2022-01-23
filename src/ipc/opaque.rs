@@ -14,14 +14,13 @@
 //!
 //! Example usage of `OpaqueServer`:
 //!
-//! ```
+//! ```no_run
 //! use tokio::sync::{broadcast, mpsc};
 //! use asyncdwmblocks::config::Config;
 //! use asyncdwmblocks::statusbar::BlockRefreshMessage;
 //! use asyncdwmblocks::ipc::{OpaqueServer, Server};
 //!
-//! # #[tokio::main]
-//! # async fn _main() {
+//! # async fn doc() {
 //! let (server_sender, mut server_receiver) = mpsc::channel(8);
 //! let (_, termination_signal_receiver) = broadcast::channel::<()>(8);
 //! let config = Config::default().arc();
@@ -41,14 +40,13 @@
 //!
 //! Example usage of `OpaqueNotifier`:
 //!
-//! ```
+//! ```no_run
 //! use asyncdwmblocks::config::Config;
 //! use asyncdwmblocks::statusbar::BlockRefreshMessage;
 //! use asyncdwmblocks::block::BlockRunMode;
 //! use asyncdwmblocks::ipc::{OpaqueNotifier, Notifier};
 //!
-//! # #[tokio::main]
-//! # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
+//! # async fn doc() -> Result<(), Box<dyn std::error::Error>> {
 //! let config = Config::default().arc();
 //! let msg = BlockRefreshMessage { name: "block".to_string(), mode: BlockRunMode::Normal };
 //!

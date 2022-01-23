@@ -1,8 +1,5 @@
 # TODO list:
 
- - [ ] Use `Self::x` in `match self { ... }`
- - [ ] Don't end running server, if accepting connection failed.
- - [ ] Use *norun* in tests
  - [ ] What to do if in block's output is `'\0'`? It will cause `X11Connection::set_root_name` to panic!
  - [ ] Add option to use "Linux Abstract Socket Namespace" when target is Linux.
  - [ ] Add D-BUS IPC option
@@ -21,9 +18,12 @@
  - [ ] Add InternalConfig to Config and use it (server protocol?)
  - [ ] Put timeout at running Block's command (?)
  - [ ] Make warnings handling optional, maybe use some logging tool (?)
+ - [ ] Don't end running server, if accepting connection failed (?)
 
 # Done
 
+ - [x] Use *norun* in tests
+ - [x] Use `Self::x` in `match self { ... }`
  - [x] Solve problem of leaving Unix domain socket file opened when process is terminated by a signal!
  - [x] use `macro_rules!` to define generic server and notifier tests in `opaque.rs`
  - [x] Add better error messages when Unix domain socket file wasn't unlinked

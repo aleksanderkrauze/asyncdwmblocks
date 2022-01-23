@@ -31,11 +31,11 @@ use crate::config::Config;
 /// They are exhaustive and mutually exclusive.
 ///
 /// # Example
-/// ```
+/// ```no_run
 /// use asyncdwmblocks::block::{Block, BlockRunMode};
 /// use asyncdwmblocks::config::Config;
 ///
-/// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
+/// # async fn doc() -> Result<(), Box<dyn std::error::Error>> {
 /// let config = Config::default().arc();
 /// let mut b = Block::new("my_battery_script.sh".to_string(), vec![], Some(60), config);
 /// match b.run(BlockRunMode::Normal).await {
@@ -132,11 +132,11 @@ impl BlockRunError {
 /// action when clicked with specific mouse button.
 ///
 /// # Example
-/// ```
+/// ```no_run
 /// use asyncdwmblocks::block::{Block, BlockRunMode};
 /// use asyncdwmblocks::config::Config;
 ///
-/// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
+/// # async fn doc() -> Result<(), Box<dyn std::error::Error>> {
 /// let config = Config::default().arc();
 /// let mut block = Block::new("date_script".to_string(), vec![], Some(60), config);
 ///
@@ -232,11 +232,11 @@ impl Block {
     /// newline character and then sets it as a inner result.
     ///
     /// # Example
-    /// ```
+    /// ```no_run
     /// use asyncdwmblocks::block::{Block, BlockRunMode};
     /// use asyncdwmblocks::config::Config;
     ///
-    /// # async fn _main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # async fn doc() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Config::default().arc();
     /// let mut block = Block::new("echo".to_string(), vec!["Hello".to_string()], None, config);
     /// block.run(BlockRunMode::Normal).await?;
@@ -284,20 +284,18 @@ impl Block {
     /// this method will return `None` as well.
     ///
     /// # Example
-    /// ```
+    /// ```no_run
     /// use std::sync::Arc;
+    /// use std::time::Duration;
     /// use asyncdwmblocks::block::Block;
     /// use asyncdwmblocks::config::Config;
     ///
-    /// # use std::time::Duration;
-    /// # async fn async_main() {
     /// let config = Config::default().arc();
     /// let date = Block::new("date".to_string(), vec![], Some(60), Arc::clone(&config));
     /// let message = Block::new("echo".to_string(), vec!["Hello!".to_string()], None, Arc::clone(&config));
     ///
     /// assert_eq!(date.get_scheduler().unwrap().period(), Duration::from_secs(60));
     /// assert!(message.get_scheduler().is_none());
-    /// # }
     /// ```
     pub fn get_scheduler(&self) -> Option<Interval> {
         let interval = self.interval?;

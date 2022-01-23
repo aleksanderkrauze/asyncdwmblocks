@@ -62,10 +62,10 @@ impl From<OpenError> for X11ConnectionError {
 /// **must be used** only in context of async blocks.
 ///
 /// # Example
-/// ```
+/// ```no_run
 /// use asyncdwmblocks::x11::X11Connection;
 ///
-/// # fn _main() -> Result<(), Box<dyn std::error::Error>> {
+/// # fn doc() -> Result<(), Box<dyn std::error::Error>> {
 /// {
 ///     let conn = X11Connection::new()?; // Connection to X Server is established
 ///

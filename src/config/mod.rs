@@ -178,10 +178,8 @@ impl Config {
     /// use asyncdwmblocks::config::Config;
     /// use std::sync::Arc;
     ///
-    /// # fn main() {
     /// let config = Config::default().arc();
     /// assert_eq!(config, Arc::new(Config::default()));
-    /// # }
     /// ```
     pub fn arc(self) -> Arc<Self> {
         Arc::new(self)

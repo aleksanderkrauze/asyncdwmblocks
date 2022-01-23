@@ -19,10 +19,9 @@
 //! This example shows how byte stream could be decoded and interpreted
 //! as a list of `BlockRefreshMessage`s. It is used in [`Server`](super::Server)s.
 //!
-//! ```
+//! ```no_run
 //! use asyncdwmblocks::ipc::frame::{Frames, Frame};
 //!
-//! # fn main() {
 //! let stream = b"...";
 //! let frames = Frames::from(stream.as_slice());
 //! for frame in frames {
@@ -35,7 +34,6 @@
 //!         }
 //!     }
 //! }
-//! # }
 //! ```
 //!
 //! # Encoding
@@ -43,19 +41,17 @@
 //! This example shows how list of `BlockRefreshMessage`s can be
 //! encoded into byte stream. It is used in [`Notifier`](super::Notifier)s.
 //!
-//! ```
+//! ```no_run
 //! use asyncdwmblocks::statusbar::BlockRefreshMessage;
 //! use asyncdwmblocks::block::BlockRunMode;
 //! use asyncdwmblocks::ipc::frame::{Frames, Frame};
 //!
-//! # fn main() {
 //! let messages = vec![
 //!     BlockRefreshMessage::new(String::from("battery"), BlockRunMode::Normal),
 //!     BlockRefreshMessage::new(String::from("backlight"), BlockRunMode::Button(1)),
 //! ];
 //! let frames: Frames = messages.into_iter().map(Frame::from).collect();
 //! let stream: Vec<u8> = frames.encode(); // Send this stream somewhere
-//! # }
 //! ```
 
 use crate::block::BlockRunMode;

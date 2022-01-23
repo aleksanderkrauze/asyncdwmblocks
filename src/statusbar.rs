@@ -114,7 +114,7 @@ impl StatusBar {
     /// the **first** one will be stored.
     ///
     /// # Example
-    /// ```
+    /// ```no_run
     /// use std::sync::Arc;
     /// use asyncdwmblocks::block::Block;
     /// use asyncdwmblocks::statusbar::{StatusBar, BlocksHolderItem};
@@ -150,15 +150,14 @@ impl StatusBar {
     /// spawned as a separate task, or should be placed at the end of method call.
     ///
     /// # Example
-    /// ```
+    /// ```no_run
     /// use std::sync::Arc;
     /// use tokio::sync::mpsc;
     /// use asyncdwmblocks::block::Block;
     /// use asyncdwmblocks::statusbar::{StatusBar, BlocksHolderItem};
     /// use asyncdwmblocks::config::Config;
     ///
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # async fn doc() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Config::default().arc();
     /// let b = Block::new("date".into(), vec![], Some(60), Arc::clone(&config));
     /// let mut status_bar = StatusBar::new(
@@ -174,8 +173,8 @@ impl StatusBar {
     /// });
     ///
     /// while let Some(_) = result_receiver.recv().await {
-    ///  // do stuff
-    ///  # break;
+    ///     // do stuff
+    ///     # break;
     /// }
     /// # Ok(())
     /// # }
