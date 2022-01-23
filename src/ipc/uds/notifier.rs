@@ -114,9 +114,9 @@ mod tests {
     use crate::ipc::ServerType;
     use crate::statusbar::BlockRefreshMessage;
     use chrono::{DateTime, Utc};
+    use std::fs;
     use std::path::PathBuf;
     use std::time::SystemTime;
-    use tokio::fs;
     use tokio::io::AsyncReadExt;
     use tokio::net::UnixListener;
 
@@ -161,7 +161,7 @@ mod tests {
         let (mut stream, _) = listener.accept().await.unwrap();
         stream.read_to_end(&mut buff).await.unwrap();
 
-        fs::remove_file(&config.ipc.uds.addr).await.unwrap();
+        fs::remove_file(&config.ipc.uds.addr).unwrap();
 
         assert_eq!(
             buff.as_slice(),
