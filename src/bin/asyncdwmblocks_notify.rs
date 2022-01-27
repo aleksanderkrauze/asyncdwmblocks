@@ -54,13 +54,13 @@ fn parse_cli_args() -> Result<BlockRefreshMessage, CliArgsParseError> {
         }
     };
 
-    Ok(BlockRefreshMessage {
-        name: block.to_string(),
-        mode: match button {
-            Some(b) => BlockRunMode::Button(b),
-            None => BlockRunMode::Normal,
-        },
-    })
+    let name = block.to_string();
+    let mode = match button {
+        Some(b) => BlockRunMode::Button(b),
+        None => BlockRunMode::Normal,
+    };
+    let message = BlockRefreshMessage::new(name, mode);
+    Ok(message)
 }
 
 async fn run() -> Result<(), Box<dyn Error>> {

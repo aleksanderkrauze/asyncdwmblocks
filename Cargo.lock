@@ -30,6 +30,7 @@ dependencies = [
  "chrono",
  "clap",
  "futures",
+ "indexmap",
  "pretty_assertions",
  "rusty-fork",
  "serde",

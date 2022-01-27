@@ -1,5 +1,7 @@
 # TODO list:
 
+ - [ ] Use consistent naming (does Block has a name of an id?)
+ - [ ] Unify behaviour of Servers (their main loop)
  - [ ] Add option to use "Linux Abstract Socket Namespace" when target is Linux.
  - [ ] Add D-BUS IPC option
  - [ ] Block sends result though channel

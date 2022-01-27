@@ -1,75 +1,23 @@
 //! This module defines [StatusBar] and it's errors.
 
-use std::collections::HashMap;
-use std::ops::{Deref, DerefMut};
+use std::error::Error;
+use std::fmt;
 use std::sync::Arc;
 
 use futures::future::join_all;
+use indexmap::IndexMap;
 use tokio::sync::mpsc;
 
 use crate::block::{Block, BlockRunMode};
 use crate::config::Config;
 
-/// Information about one block hold by [StatusBar].
+/// [Block] held by [StatusBar].
 #[derive(Debug, PartialEq, Clone)]
-pub struct BlocksHolderItem {
-    /// Block's id
-    pub id: String,
+pub struct StatusBarBlock {
+    /// Block's name
+    pub name: String,
     /// Block
     pub block: Block,
-}
-
-/// List of blocks hold by [StatusBar].
-#[derive(Debug, PartialEq, Clone)]
-pub struct BlocksHolder(Vec<BlocksHolderItem>);
-
-impl FromIterator<BlocksHolderItem> for BlocksHolder {
-    fn from_iter<T>(iter: T) -> Self
-    where
-        T: IntoIterator<Item = BlocksHolderItem>,
-    {
-        // TODO: try to reduce number of allocations
-
-        // Make sure that id's are unique
-        let mut data: HashMap<String, (Block, usize)> = HashMap::new();
-        for (index, BlocksHolderItem { id, block }) in iter.into_iter().enumerate() {
-            // We ignore this clippy lint, because otherwise, if we would apply
-            // it we would have to clone `id` to later use it in warning printing,
-            // which would result in much greater performance and memory impact
-            // that this does.
-            #[allow(clippy::map_entry)]
-            if !data.contains_key(&id) {
-                data.insert(id, (block, index));
-            } else {
-                eprintln!(
-                    "Warning: block with id `{}` already exists. Skipping this block (`{}`).",
-                    id, block
-                );
-            }
-        }
-
-        let mut data: Vec<(String, (Block, usize))> = data.into_iter().collect();
-        data.sort_unstable_by_key(|&(_, (_, i))| i);
-        let data: Vec<BlocksHolderItem> = data
-            .into_iter()
-            .map(|(id, (block, _))| BlocksHolderItem { id, block })
-            .collect();
-
-        Self(data)
-    }
-}
-
-impl Deref for BlocksHolder {
-    type Target = Vec<BlocksHolderItem>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for BlocksHolder {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
 }
 
 /// Message passed to [StatusBar] informing it which block should
@@ -77,9 +25,9 @@ impl DerefMut for BlocksHolder {
 #[derive(Debug, PartialEq, Clone)]
 pub struct BlockRefreshMessage {
     /// Name (id) of a block that should be refreshed
-    pub name: String,
+    pub(crate) name: String,
     /// In which mode should this block be refreshed
-    pub mode: BlockRunMode,
+    pub(crate) mode: BlockRunMode,
 }
 
 impl BlockRefreshMessage {
@@ -88,6 +36,25 @@ impl BlockRefreshMessage {
         Self { name, mode }
     }
 }
+
+/// Error that represents failure to create StatusBar.
+#[derive(Debug, PartialEq, Clone)]
+pub enum StatusBarCreationError {
+    /// Multiple blocks had the same name
+    BlockIdError(String),
+}
+
+impl fmt::Display for StatusBarCreationError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let msg = match self {
+            Self::BlockIdError(msg) => format!("Each block id should be unique\n\n{}", msg),
+        };
+
+        write!(f, "{}", msg)
+    }
+}
+
+impl Error for StatusBarCreationError {}
 
 /// This struct represents a status bar.
 ///
@@ -102,42 +69,65 @@ impl BlockRefreshMessage {
 /// `Config`.
 #[derive(Debug, PartialEq, Clone)]
 pub struct StatusBar {
-    blocks: BlocksHolder,
+    blocks: IndexMap<String, Block>,
     config: Arc<Config>,
     buff_size: Option<usize>,
 }
 
 impl StatusBar {
-    /// Creates new `StatusBar` from vector of [`BlocksHolderItem`]s.
+    /// Creates new `StatusBar` from vector of [`StatusBarBlock`]s.
     ///
-    /// `Block`s *should* have unique id. If some ids repeat only
-    /// the **first** one will be stored.
+    /// Will return error if some blocks have the same name.
     ///
     /// # Example
     /// ```no_run
     /// use std::sync::Arc;
     /// use asyncdwmblocks::block::Block;
-    /// use asyncdwmblocks::statusbar::{StatusBar, BlocksHolderItem};
+    /// use asyncdwmblocks::statusbar::{StatusBar, StatusBarBlock};
     /// use asyncdwmblocks::config::Config;
     ///
+    /// # fn doc() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Config::default().arc();
     /// let battery = Block::new("my_battery_script".into(), vec![], Some(60), Arc::clone(&config));
     /// let datetime = Block::new("my_datetime_script".into(), vec![], Some(60), Arc::clone(&config));
     /// let info = Block::new("echo".into(), vec!["asyncdwmblocks".into()], None, Arc::clone(&config));
     ///
     /// let blocks = vec![
-    ///     BlocksHolderItem { id: "battery".to_string(), block: battery },
-    ///     BlocksHolderItem { id: "datetime".to_string(), block: datetime },
-    ///     BlocksHolderItem { id: "info".to_string(), block: info },
+    ///     StatusBarBlock { name: "battery".to_string(), block: battery },
+    ///     StatusBarBlock { name: "datetime".to_string(), block: datetime },
+    ///     StatusBarBlock { name: "info".to_string(), block: info },
     /// ];
-    /// let statusbar = StatusBar::new(blocks, config);
+    /// let statusbar = StatusBar::new(blocks, config)?;
+    /// # Ok(())
+    /// # }
     /// ```
-    pub fn new(blocks: Vec<BlocksHolderItem>, config: Arc<Config>) -> Self {
-        let blocks = blocks.into_iter().collect();
-        Self {
-            blocks,
-            config,
-            buff_size: None,
+    pub fn new(
+        blocks: Vec<StatusBarBlock>,
+        config: Arc<Config>,
+    ) -> Result<Self, StatusBarCreationError> {
+        let mut blocks_map = IndexMap::with_capacity(blocks.len());
+        let mut err_map = IndexMap::<String, usize>::new();
+
+        for StatusBarBlock { name, block } in blocks {
+            if !blocks_map.contains_key(&name) {
+                blocks_map.insert(name, block);
+            } else {
+                *err_map.entry(name).or_insert(1) += 1;
+            }
+        }
+
+        if !err_map.is_empty() {
+            let mut err_msg = String::new();
+            for (name, num) in err_map {
+                err_msg.push_str(&format!("Name: `{}` occurs multiple ({}) times", name, num));
+            }
+            Err(StatusBarCreationError::BlockIdError(err_msg))
+        } else {
+            Ok(Self {
+                blocks: blocks_map,
+                config,
+                buff_size: None,
+            })
         }
     }
 
@@ -154,16 +144,16 @@ impl StatusBar {
     /// use std::sync::Arc;
     /// use tokio::sync::mpsc;
     /// use asyncdwmblocks::block::Block;
-    /// use asyncdwmblocks::statusbar::{StatusBar, BlocksHolderItem};
+    /// use asyncdwmblocks::statusbar::{StatusBar, StatusBarBlock};
     /// use asyncdwmblocks::config::Config;
     ///
     /// # async fn doc() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Config::default().arc();
     /// let b = Block::new("date".into(), vec![], Some(60), Arc::clone(&config));
     /// let mut status_bar = StatusBar::new(
-    ///     vec![BlocksHolderItem { id: "date_block".to_string(), block: b } ],
+    ///     vec![StatusBarBlock { name: "date_block".to_string(), block: b } ],
     ///     config
-    /// );
+    /// )?;
     ///
     /// let (result_sender, mut result_receiver) = mpsc::channel(8);
     /// let (reload_sender, reload_receiver) = mpsc::channel(8);
@@ -192,16 +182,15 @@ impl StatusBar {
         }
 
         let (schedulers_sender, mut schedulers_receiver) = mpsc::channel(8);
-        for BlocksHolderItem { id, block } in self.blocks.iter() {
+        for (index, block) in self.blocks.values().enumerate() {
             if let Some(mut scheduler) = block.get_scheduler() {
                 let schedulers_sender = schedulers_sender.clone();
-                let id = id.clone();
                 tokio::spawn(async move {
                     loop {
                         scheduler.tick().await;
 
-                        if schedulers_sender.send(id.clone()).await.is_err() {
-                            //receiver channel dropped or closed, so we finish as well
+                        if schedulers_sender.send(index).await.is_err() {
+                            // receiver channel dropped or closed, so we finish as well
                             break;
                         }
                     }
@@ -243,11 +232,10 @@ impl StatusBar {
                 }
                 s = schedulers_receiver.recv(), if !schedulers_finished => {
                     match s {
-                        Some(block_id) => {
-                            // It is safe to unwrap, bacause block_id must be valid
-                            // (since it was sent through this channel). See how it's
-                            // senders are used.
-                            let block = self.get_block_by_name_mut(&block_id).unwrap();
+                        Some(index) => {
+                            // It is safe to index into self.blocks, because this index was created
+                            // while enumerating it's values.
+                            let block = &mut self.blocks[index];
                             // Ignore errors
                             let _ = block.run(BlockRunMode::Normal).await;
 
@@ -274,7 +262,7 @@ impl StatusBar {
         let mut blocks = self
             .blocks
             .iter()
-            .map(|BlocksHolderItem { block, .. }| block)
+            .map(|(_, block)| block)
             .map(Block::result)
             .flatten();
 
@@ -304,7 +292,7 @@ impl StatusBar {
         let futures: Vec<_> = self
             .blocks
             .iter_mut()
-            .map(|BlocksHolderItem { block, .. }| block)
+            .map(|(_, block)| block)
             .map(|b| b.run(BlockRunMode::Normal))
             .collect();
 
@@ -312,22 +300,19 @@ impl StatusBar {
     }
 
     fn get_block_by_name_mut(&mut self, name: &str) -> Option<&mut Block> {
-        self.blocks
-            .iter_mut()
-            .find(|BlocksHolderItem { id, .. }| id == name)
-            .map(|BlocksHolderItem { block, .. }| block)
+        self.blocks.get_mut(name)
     }
 }
 
-impl From<Arc<Config>> for StatusBar {
-    /// Creates `StatusBar` from given `Config`.
-    fn from(config: Arc<Config>) -> Self {
+impl TryFrom<Arc<Config>> for StatusBar {
+    type Error = StatusBarCreationError;
+    fn try_from(config: Arc<Config>) -> Result<Self, Self::Error> {
         let blocks = config
             .statusbar
             .blocks
             .iter()
-            .map(|b| BlocksHolderItem {
-                id: b.name.clone(),
+            .map(|b| StatusBarBlock {
+                name: b.name.clone(),
                 block: Block::new(
                     b.command.clone(),
                     b.args.clone(),
@@ -337,13 +322,6 @@ impl From<Arc<Config>> for StatusBar {
             })
             .collect();
         Self::new(blocks, config)
-    }
-}
-
-impl Default for StatusBar {
-    /// Creates `StatusBar` from default `Config`.
-    fn default() -> Self {
-        Self::from(Config::default().arc())
     }
 }
 
@@ -358,7 +336,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     fn setup_blocks_for_get_status_bar(data: Vec<Option<&str>>, config: Arc<Config>) -> StatusBar {
-        let blocks: BlocksHolder = data
+        let blocks: IndexMap<String, Block> = data
             .iter()
             .map(|x| x.map(|x| x.to_string()))
             .map(|x| {
@@ -368,7 +346,6 @@ mod tests {
             })
             .enumerate()
             .map(|(i, b)| (format!("id_{}", i), b))
-            .map(|(id, block)| BlocksHolderItem { id, block })
             .collect();
 
         StatusBar {
@@ -460,17 +437,18 @@ mod tests {
 
         let mut statusbar = StatusBar::new(
             vec![
-                BlocksHolderItem {
-                    id: "date".into(),
+                StatusBarBlock {
+                    name: "date".into(),
                     block: date_block,
                 },
-                BlocksHolderItem {
-                    id: "info".into(),
+                StatusBarBlock {
+                    name: "info".into(),
                     block: info_block,
                 },
             ],
             config,
-        );
+        )
+        .unwrap();
         statusbar.init().await;
 
         assert_eq!(
@@ -487,17 +465,18 @@ mod tests {
 
         let mut status_bar = StatusBar::new(
             vec![
-                BlocksHolderItem {
-                    id: "name1".into(),
+                StatusBarBlock {
+                    name: "name1".into(),
                     block: b1,
                 },
-                BlocksHolderItem {
-                    id: "name2".into(),
+                StatusBarBlock {
+                    name: "name2".into(),
                     block: b2,
                 },
             ],
             config,
-        );
+        )
+        .unwrap();
 
         let b1 = status_bar.get_block_by_name_mut("name1");
         assert!(b1.is_some());
@@ -523,12 +502,13 @@ mod tests {
             Arc::clone(&config),
         );
         let mut status_bar = StatusBar::new(
-            vec![BlocksHolderItem {
-                id: "epoch".into(),
+            vec![StatusBarBlock {
+                name: "epoch".into(),
                 block: b,
             }],
             config,
-        );
+        )
+        .unwrap();
 
         let (result_sender, mut result_receiver) = mpsc::channel(8);
         let (_, reload_receiver) = mpsc::channel(8);
@@ -564,12 +544,13 @@ mod tests {
         let config = Config::default().arc();
         let b = Block::new("date".into(), vec!["+%s".into()], None, Arc::clone(&config));
         let mut status_bar = StatusBar::new(
-            vec![BlocksHolderItem {
-                id: "epoch".into(),
+            vec![StatusBarBlock {
+                name: "epoch".into(),
                 block: b,
             }],
             config,
-        );
+        )
+        .unwrap();
 
         let (result_sender, mut result_receiver) = mpsc::channel(8);
         let (reload_sender, reload_receiver) = mpsc::channel(8);
@@ -613,12 +594,13 @@ mod tests {
         let config = Config::default().arc();
         let b = Block::new("date".into(), vec!["+%s".into()], None, Arc::clone(&config));
         let mut status_bar = StatusBar::new(
-            vec![BlocksHolderItem {
-                id: "epoch".into(),
+            vec![StatusBarBlock {
+                name: "epoch".into(),
                 block: b,
             }],
             config,
-        );
+        )
+        .unwrap();
 
         let (result_sender, mut result_receiver) = mpsc::channel(8);
         let (reload_sender, reload_receiver) = mpsc::channel(8);
@@ -666,9 +648,9 @@ mod tests {
         const NUM: usize = 40;
 
         let config = Config::default().arc();
-        let blocks: Vec<BlocksHolderItem> = (0..NUM)
-            .map(|i| BlocksHolderItem {
-                id: format!("echo_{}", i),
+        let blocks: Vec<StatusBarBlock> = (0..NUM)
+            .map(|i| StatusBarBlock {
+                name: format!("echo_{}", i),
                 block: Block::new(
                     "echo".into(),
                     vec![i.to_string()],
@@ -677,7 +659,7 @@ mod tests {
                 ),
             })
             .collect();
-        let mut status_bar = StatusBar::new(blocks, config);
+        let mut status_bar = StatusBar::new(blocks, config).unwrap();
 
         let (result_sender, mut result_receiver) = mpsc::channel(2 * NUM);
         let (_, reload_receiver) = mpsc::channel(8);
@@ -725,54 +707,40 @@ mod tests {
         }
         .arc();
 
-        let mut statusbar = StatusBar::from(config);
+        let mut statusbar = StatusBar::try_from(config).unwrap();
         statusbar.init().await;
 
         assert_eq!(statusbar.get_status_bar(), String::from("I ❤️ 🦀!"));
     }
 
     #[test]
-    fn statusbar_new_identical_ids() {
+    fn statusbar_multiple_ids_error() {
         let config = Config::default().arc();
         let blocks = vec![
-            BlocksHolderItem {
-                id: "A".into(),
+            StatusBarBlock {
+                name: "A".into(),
                 block: Block::new(String::from("1"), vec![], None, Arc::clone(&config)),
             },
-            BlocksHolderItem {
-                id: "B".into(),
+            StatusBarBlock {
+                name: "B".into(),
                 block: Block::new(String::from("2"), vec![], None, Arc::clone(&config)),
             },
-            BlocksHolderItem {
-                id: "B".into(),
+            StatusBarBlock {
+                name: "B".into(),
                 block: Block::new(String::from("3"), vec![], None, Arc::clone(&config)),
             },
-            BlocksHolderItem {
-                id: "A".into(),
+            StatusBarBlock {
+                name: "A".into(),
                 block: Block::new(String::from("4"), vec![], None, Arc::clone(&config)),
             },
-            BlocksHolderItem {
-                id: "C".into(),
-                block: Block::new(String::from("5"), vec![], None, Arc::clone(&config)),
-            },
-        ];
-        let expected_blocks = vec![
-            BlocksHolderItem {
-                id: String::from("A"),
-                block: Block::new(String::from("1"), vec![], None, Arc::clone(&config)),
-            },
-            BlocksHolderItem {
-                id: String::from("B"),
-                block: Block::new(String::from("2"), vec![], None, Arc::clone(&config)),
-            },
-            BlocksHolderItem {
-                id: String::from("C"),
+            StatusBarBlock {
+                name: "C".into(),
                 block: Block::new(String::from("5"), vec![], None, Arc::clone(&config)),
             },
         ];
 
         let statusbar = StatusBar::new(blocks, config);
 
-        assert_eq!(statusbar.blocks.0, expected_blocks);
+        assert!(statusbar.is_err());
     }
 }

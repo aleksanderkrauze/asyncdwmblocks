@@ -48,7 +48,7 @@
 //!
 //! # async fn doc() -> Result<(), Box<dyn std::error::Error>> {
 //! let config = Config::default().arc();
-//! let msg = BlockRefreshMessage { name: "block".to_string(), mode: BlockRunMode::Normal };
+//! let msg = BlockRefreshMessage::new("block".to_string(), BlockRunMode::Normal);
 //!
 //! // Use notifier as a normal Notifier
 //! let mut notifier = OpaqueNotifier::new(config);

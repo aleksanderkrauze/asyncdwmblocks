@@ -18,7 +18,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
     let x11 = x11::X11Connection::new()?;
 
     let config = Config::get_config().await?.arc();
-    let mut statusbar = StatusBar::from(Arc::clone(&config));
+    let mut statusbar = StatusBar::try_from(Arc::clone(&config))?;
 
     // This channel is used to catch informations
     // about OS signals and send them to different
