@@ -64,9 +64,7 @@ impl Error for StatusBarCreationError {}
 /// between each pair of adjacent blocks.
 ///
 /// `StatusBar` can be created either manually by calling [new](StatusBar::new)
-/// or [from](StatusBar::from<Config>) [`Config`] (which is preferred way).
-/// It also implements [Default] which results in creating StatusBar from default
-/// `Config`.
+/// or [try_from](StatusBar::try_from<Config>) [`Config`] (which is preferred way).
 #[derive(Debug, PartialEq, Clone)]
 pub struct StatusBar {
     blocks: IndexMap<String, Block>,
