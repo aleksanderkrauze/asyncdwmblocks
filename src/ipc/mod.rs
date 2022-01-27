@@ -28,8 +28,11 @@ use std::fmt;
 use async_trait::async_trait;
 #[cfg(feature = "config-file")]
 use serde::Deserialize;
+use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::sync::mpsc;
 
 use crate::statusbar::BlockRefreshMessage;
+use frame::{Frame, Frames};
 
 pub use opaque::{OpaqueNotifier, OpaqueServer};
 
@@ -97,5 +100,47 @@ impl fmt::Display for ServerType {
         };
 
         write!(f, "{}", msg)
+    }
+}
+
+/// Universal (for `Server`s method to handle streams).
+async fn handle_server_stream<S: AsyncRead + Unpin>(
+    mut stream: S,
+    message_sender: mpsc::Sender<BlockRefreshMessage>,
+    cancelation_sender: mpsc::Sender<()>,
+) {
+    let mut buffer = [0u8; 1024];
+    let nbytes = match stream.read(&mut buffer).await {
+        Ok(n) => {
+            if n == 0 {
+                // Don't analyse empty stream
+                return;
+            }
+            n
+        }
+        // There is nothing we could do, end connection.
+        Err(_) => return,
+    };
+    let frames = Frames::from(&buffer[..nbytes]);
+    for frame in frames {
+        match frame {
+            Frame::Message(msg) => {
+                // Receiving channel was closed, so there is no point in sending this
+                // frame, any of this frames and accept new connections, since whoever
+                // is listening to us has stopped doing it. Send signal to self to stop running.
+                if message_sender.send(msg).await.is_err() {
+                    // If receiving channel is closed that means that another task
+                    // has already sent termination message and it was enforced.
+                    // So it doesn't matter that we failed.
+                    let _ = cancelation_sender.send(()).await;
+                    // Don't try to send next messages. End this task.
+                    break;
+                }
+            }
+            // We do not currently report back weather
+            // parsing or execution were successful or not,
+            // so for now we silently ignore any errors.
+            Frame::Error => continue,
+        }
     }
 }

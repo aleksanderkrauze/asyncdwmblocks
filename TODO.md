@@ -1,7 +1,6 @@
 # TODO list:
 
  - [ ] Use consistent naming (does Block has a name of an id?)
- - [ ] Unify behaviour of Servers (their main loop)
  - [ ] Add option to use "Linux Abstract Socket Namespace" when target is Linux.
  - [ ] Add D-BUS IPC option
  - [ ] Block sends result though channel
@@ -23,6 +22,7 @@
 
 # Done
 
+ - [x] Unify behaviour of Servers (their main loop)
  - [x] Filter out `\u{0}` chars from Block's output
  - [x] Use *norun* in tests
  - [x] Use `Self::x` in `match self { ... }`

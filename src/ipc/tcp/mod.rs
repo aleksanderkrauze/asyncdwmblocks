@@ -8,8 +8,7 @@ pub mod server;
 pub use notifier::TcpNotifier;
 pub use server::TcpServer;
 
-use super::frame;
-use super::{Notifier, Server};
+use super::{frame, handle_server_stream, Notifier, Server};
 
 #[cfg(test)]
 #[allow(clippy::needless_update)]

@@ -7,17 +7,13 @@ use std::io;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tokio::io::AsyncReadExt;
 use tokio::net::UnixListener;
 use tokio::sync::{
     broadcast::{self, error::RecvError},
     mpsc,
 };
 
-use super::{
-    frame::{Frame, Frames},
-    Server,
-};
+use super::{handle_server_stream, Server};
 use crate::config::Config;
 use crate::statusbar::BlockRefreshMessage;
 
@@ -125,7 +121,7 @@ impl Server for UdsServer {
 
         let (cancelation_sender, mut cancelation_receiver) = mpsc::channel::<()>(1);
         loop {
-            let mut stream = tokio::select! {
+            let stream = tokio::select! {
                 accepted_stream = listener.accept() => {
                     let (stream, _) = accepted_stream?;
                     stream
@@ -152,40 +148,7 @@ impl Server for UdsServer {
             let cancelation_sender = cancelation_sender.clone();
             let message_sender = self.sender.clone();
             tokio::spawn(async move {
-                let mut buffer = [0u8; 1024];
-                let nbytes = match stream.read(&mut buffer).await {
-                    Ok(n) => {
-                        if n == 0 {
-                            // Don't analyse empty stream
-                            return;
-                        }
-                        n
-                    }
-                    // There is nothing we could do, end connection.
-                    Err(_) => return,
-                };
-                let frames = Frames::from(&buffer[..nbytes]);
-                for frame in frames {
-                    match frame {
-                        Frame::Message(msg) => {
-                            // Receiving channel was closed, so there is no point in sending this
-                            // frame, any of this frames and accept new connections, since whoever
-                            // is listening to us has stopped doing it. Send signal to self to stop running.
-                            if message_sender.send(msg).await.is_err() {
-                                // If receiving channel is closed that means that another task
-                                // has already sent termination message and it was enforced.
-                                // So it doesn't matter that we failed.
-                                let _ = cancelation_sender.send(()).await;
-                                // Don't try to send next messages. End this task.
-                                break;
-                            }
-                        }
-                        // We do not currently report back weather
-                        // parsing or execution were successful or not,
-                        // so for now we silently ignore any errors.
-                        Frame::Error => continue,
-                    }
-                }
+                handle_server_stream(stream, message_sender, cancelation_sender).await;
             });
         }
 
