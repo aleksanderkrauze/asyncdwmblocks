@@ -18,6 +18,9 @@
     unreachable_pub,
     clippy::empty_line_after_outer_attr
 )]
+// When certain features aren't enabled some updates
+// become needless. Allow this.
+#![allow(clippy::needless_update)]
 
 pub mod block;
 pub mod config;

@@ -231,7 +231,6 @@ impl Notifier for OpaqueNotifier {
 
 #[cfg(test)]
 #[allow(unused_imports)]
-#[allow(clippy::needless_update)]
 mod tests {
     use super::*;
     use crate::{
@@ -342,7 +341,10 @@ mod tests {
         let config = Config {
             ipc: config::ConfigIpc {
                 server_type: ServerType::UnixDomainSocket,
-                uds: config::ConfigIpcUnixDomainSocket { addr },
+                uds: config::ConfigIpcUnixDomainSocket {
+                    addr,
+                    ..config::ConfigIpcUnixDomainSocket::default()
+                },
                 ..config::ConfigIpc::default()
             },
             ..Config::default()
@@ -386,7 +388,10 @@ mod tests {
         let config = Config {
             ipc: config::ConfigIpc {
                 server_type: ServerType::UnixDomainSocket,
-                uds: config::ConfigIpcUnixDomainSocket { addr },
+                uds: config::ConfigIpcUnixDomainSocket {
+                    addr,
+                    ..config::ConfigIpcUnixDomainSocket::default()
+                },
                 ..config::ConfigIpc::default()
             },
             ..Config::default()

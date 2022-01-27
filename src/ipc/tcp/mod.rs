@@ -11,7 +11,6 @@ pub use server::TcpServer;
 use super::{frame, handle_server_stream, Notifier, Server};
 
 #[cfg(test)]
-#[allow(clippy::needless_update)]
 mod tests {
     use super::*;
     use crate::block::BlockRunMode;

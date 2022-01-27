@@ -35,6 +35,7 @@ impl Default for ConfigIpcUnixDomainSocket {
     fn default() -> Self {
         Self {
             addr: PathBuf::from("/tmp/asyncdwmblocks.socket"),
+            force_remove_uds_file: false,
         }
     }
 }

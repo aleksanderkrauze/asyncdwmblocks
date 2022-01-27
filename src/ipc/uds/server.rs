@@ -2,7 +2,6 @@
 
 use std::error::Error;
 use std::fmt;
-use std::fs;
 use std::io;
 use std::sync::Arc;
 
@@ -43,7 +42,8 @@ impl fmt::Display for UdsServerError {
                         "or if another instance of asyncdwmblocks is already running.\n",
                         "If asyncdwmblocks is not running that means that socket file wasn't ",
                         "successfully deleted.\n",
-                        "Do it and retry running asyncdwmblocks."
+                        "Do it and retry running asyncdwmblocks or run asyncdwmblocks ",
+                        "with --force-remove-uds-file flag enabled."
                     );
                     msg.push_str(s);
                 }
@@ -116,7 +116,17 @@ impl Server for UdsServer {
     type Error = UdsServerError;
 
     async fn run(&mut self) -> Result<(), Self::Error> {
-        let listener = UnixListener::bind(&self.config.ipc.uds.addr)?;
+        let listener = match UnixListener::bind(&self.config.ipc.uds.addr) {
+            Ok(listener) => listener,
+            Err(e) => match e.kind() {
+                io::ErrorKind::AddrInUse if self.config.ipc.uds.force_remove_uds_file => {
+                    tokio::fs::remove_file(&self.config.ipc.uds.addr).await?;
+
+                    UnixListener::bind(&self.config.ipc.uds.addr)?
+                }
+                _ => return Err(UdsServerError::IO(e)),
+            },
+        };
         self.binded = true;
 
         let (cancelation_sender, mut cancelation_receiver) = mpsc::channel::<()>(1);
@@ -163,13 +173,12 @@ impl Drop for UdsServer {
         // another process is using (and we falied to bind to it).
         if self.binded {
             // Ignore errors during cleanup
-            let _ = fs::remove_file(&self.config.ipc.uds.addr);
+            let _ = std::fs::remove_file(&self.config.ipc.uds.addr);
         }
     }
 }
 
 #[cfg(test)]
-#[allow(clippy::needless_update)]
 mod tests {
     use super::*;
     use crate::block::BlockRunMode;
@@ -196,7 +205,10 @@ mod tests {
         let config = Config {
             ipc: config::ConfigIpc {
                 server_type: ServerType::UnixDomainSocket,
-                uds: config::ConfigIpcUnixDomainSocket { addr },
+                uds: config::ConfigIpcUnixDomainSocket {
+                    addr,
+                    ..config::ConfigIpcUnixDomainSocket::default()
+                },
                 ..config::ConfigIpc::default()
             },
             ..Config::default()
@@ -244,7 +256,10 @@ mod tests {
         let config = Config {
             ipc: config::ConfigIpc {
                 server_type: ServerType::UnixDomainSocket,
-                uds: config::ConfigIpcUnixDomainSocket { addr },
+                uds: config::ConfigIpcUnixDomainSocket {
+                    addr,
+                    ..config::ConfigIpcUnixDomainSocket::default()
+                },
                 ..config::ConfigIpc::default()
             },
             ..Config::default()
@@ -285,7 +300,10 @@ mod tests {
         let config = Config {
             ipc: config::ConfigIpc {
                 server_type: ServerType::UnixDomainSocket,
-                uds: config::ConfigIpcUnixDomainSocket { addr },
+                uds: config::ConfigIpcUnixDomainSocket {
+                    addr,
+                    ..config::ConfigIpcUnixDomainSocket::default()
+                },
                 ..config::ConfigIpc::default()
             },
             ..Config::default()
@@ -323,7 +341,10 @@ mod tests {
         let config = Config {
             ipc: config::ConfigIpc {
                 server_type: ServerType::UnixDomainSocket,
-                uds: config::ConfigIpcUnixDomainSocket { addr },
+                uds: config::ConfigIpcUnixDomainSocket {
+                    addr,
+                    ..config::ConfigIpcUnixDomainSocket::default()
+                },
                 ..config::ConfigIpc::default()
             },
             ..Config::default()

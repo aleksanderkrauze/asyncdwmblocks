@@ -11,7 +11,6 @@ pub use server::UdsServer;
 use super::{frame, handle_server_stream, Notifier, Server};
 
 #[cfg(test)]
-#[allow(clippy::needless_update)]
 mod tests {
     use super::*;
     use crate::block::BlockRunMode;
@@ -36,7 +35,10 @@ mod tests {
         let config = Config {
             ipc: config::ConfigIpc {
                 server_type: ServerType::UnixDomainSocket,
-                uds: config::ConfigIpcUnixDomainSocket { addr },
+                uds: config::ConfigIpcUnixDomainSocket {
+                    addr,
+                    ..config::ConfigIpcUnixDomainSocket::default()
+                },
                 ..config::ConfigIpc::default()
             },
             ..Config::default()

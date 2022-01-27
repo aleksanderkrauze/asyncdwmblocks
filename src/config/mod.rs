@@ -134,6 +134,9 @@ pub struct ConfigIpcTcp {
 pub struct ConfigIpcUnixDomainSocket {
     /// Address on which Unix domain socket Server/Notier listens on/connects to.
     pub addr: PathBuf,
+    /// If set to true UdsServer will remove socket file before starting
+    #[cfg_attr(feature = "config-file", serde(skip))]
+    pub force_remove_uds_file: bool,
 }
 
 /// Configuration for IPC (inter progess cominiucation).

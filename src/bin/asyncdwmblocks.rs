@@ -4,6 +4,7 @@ use std::error::Error;
 use std::process;
 use std::sync::Arc;
 
+use clap::{App, Arg};
 use tokio::runtime;
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -12,12 +13,48 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 use asyncdwmblocks::ipc::{OpaqueServer, Server};
 use asyncdwmblocks::{config::Config, statusbar::StatusBar, x11};
 
+#[derive(Debug, PartialEq, Clone)]
+struct CliArgs {
+    #[cfg(feature = "uds")]
+    force_remove_uds_file: bool,
+}
+
+#[allow(unused_variables)]
+fn parse_cli_args() -> CliArgs {
+    let app = App::new("asyncdwmblocks").about("Asynchronous dwm statusbar");
+
+    #[cfg(feature = "uds")]
+    let app = app.arg(
+        Arg::new("force-remove-uds-file")
+            .long("force-remove-uds-file")
+            .help("Remove existing Unix domain socket file before starting UDS server. Using it when another asyncdwmblocks is using this socket file is an undefined behaviour")
+    );
+
+    let matches = app.get_matches();
+
+    #[cfg(feature = "uds")]
+    let force_remove_uds_file = matches.is_present("force-remove-uds-file");
+
+    CliArgs {
+        #[cfg(feature = "uds")]
+        force_remove_uds_file,
+    }
+}
+
 // Some channels are not used without some features
 #[allow(unused_variables, unused_mut, non_snake_case)]
 async fn run() -> Result<(), Box<dyn Error>> {
+    let cli_args = parse_cli_args();
+
     let x11 = x11::X11Connection::new()?;
 
-    let config = Config::get_config().await?.arc();
+    let mut config = Config::get_config().await?;
+    #[cfg(feature = "uds")]
+    {
+        config.ipc.uds.force_remove_uds_file = cli_args.force_remove_uds_file;
+    }
+    let config = config.arc();
+
     let mut statusbar = StatusBar::try_from(Arc::clone(&config))?;
 
     // This channel is used to catch informations
