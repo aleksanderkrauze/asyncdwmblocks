@@ -12,6 +12,7 @@
  - [ ] Write documentation for asyncdwmblocks library (lib.rs file)
  - [ ] Add option to daemonize asyncdwmblocks (bin)
  - [ ] In config file parse ~ as $HOME and possibly parse env variables
+ - [ ] Look for `config.yml` when `config.yaml` is not found
 
 # Idea
 
