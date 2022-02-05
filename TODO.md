@@ -1,6 +1,5 @@
 # TODO list:
 
- - [ ] Use Default::default when creating Config by hand
  - [ ] Use consistent naming (does Block has a name of an id?)
  - [ ] Add option to use "Linux Abstract Socket Namespace" when target is Linux.
  - [ ] Add D-BUS IPC option
@@ -25,6 +24,7 @@
 
 # Done
 
+ - [x] Use Default::default when creating Config by hand
  - [x] Add option to forcefully remove UDS file when starting UDS server (--force-remove-uds-file)
  - [x] Unify behaviour of Servers (their main loop)
  - [x] Filter out `\u{0}` chars from Block's output

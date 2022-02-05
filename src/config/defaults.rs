@@ -3,6 +3,22 @@
 use super::*;
 
 fn default_statusbar_blocks() -> Vec<ConfigStatusBarBlock> {
+    // # Example:
+    //
+    // vec![
+    //   ConfigStatusBarBlock {
+    //     name: "battery".to_string(),
+    //     command: "battery.sh".to_string(),
+    //     args: vec![],
+    //     interval: Some(60),
+    //   },
+    //   ConfigStatusBarBlock {
+    //     name: "backlight".to_string(),
+    //     command: "backlight.sh".to_string(),
+    //     args: vec![],
+    //     interval: None,
+    //    },
+    // ]
     vec![]
 }
 
@@ -57,9 +73,9 @@ impl Default for ConfigIpc {
         Self {
             server_type,
             #[cfg(feature = "tcp")]
-            tcp: ConfigIpcTcp::default(),
+            tcp: Default::default(),
             #[cfg(feature = "uds")]
-            uds: ConfigIpcUnixDomainSocket::default(),
+            uds: Default::default(),
         }
     }
 }
@@ -69,10 +85,10 @@ impl Default for ConfigIpc {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            statusbar: ConfigStatusBar::default(),
-            block: ConfigBlock::default(),
+            statusbar: Default::default(),
+            block: Default::default(),
             #[cfg(feature = "ipc")]
-            ipc: ConfigIpc::default(),
+            ipc: Default::default(),
         }
     }
 }
