@@ -210,6 +210,14 @@ impl Config {
                         .await
                         .map_err(|e| Box::new(e) as Box<dyn Error>);
                 }
+
+                path.set_extension("yml");
+
+                if fs::metadata(&path).await.is_ok() {
+                    return Config::load_from_file(&path)
+                        .await
+                        .map_err(|e| Box::new(e) as Box<dyn Error>);
+                }
             }
 
             // check $HOME/.config/asyncdwmblocks/config.yaml
@@ -218,6 +226,14 @@ impl Config {
                 path.push(".config/asyncdwmblocks/config.yaml");
 
                 // Metadata returned Ok(), so file exists
+                if fs::metadata(&path).await.is_ok() {
+                    return Config::load_from_file(&path)
+                        .await
+                        .map_err(|e| Box::new(e) as Box<dyn Error>);
+                }
+
+                path.set_extension("yml");
+
                 if fs::metadata(&path).await.is_ok() {
                     return Config::load_from_file(&path)
                         .await

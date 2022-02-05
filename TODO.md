@@ -11,7 +11,6 @@
  - [ ] Write documentation for asyncdwmblocks library (lib.rs file)
  - [ ] Add option to daemonize asyncdwmblocks (bin)
  - [ ] In config file parse ~ as $HOME and possibly parse env variables
- - [ ] Look for `config.yml` when `config.yaml` is not found
  - [ ] Add option to refresh all blocks
 
 # Idea
@@ -24,6 +23,7 @@
 
 # Done
 
+ - [x] Look for `config.yml` when `config.yaml` is not found
  - [x] Use Default::default when creating Config by hand
  - [x] Add option to forcefully remove UDS file when starting UDS server (--force-remove-uds-file)
  - [x] Unify behaviour of Servers (their main loop)

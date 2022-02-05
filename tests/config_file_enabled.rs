@@ -75,10 +75,23 @@ rusty_fork_test! {
     fn get_config_xdg() {
         let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
         rt.block_on(async {
-            env::set_var("XDG_CONFIG_HOME", "./tests/assets/config_autoload/1");
+            env::set_var("XDG_CONFIG_HOME", "./tests/assets/config_autoload/xdg");
             let config = Config::get_config().await.unwrap();
 
-            assert_eq!(config.block.clicked_env_variable, String::from("1"));
+            assert_eq!(config.block.clicked_env_variable, String::from("xdg"));
+        });
+    }
+}
+
+rusty_fork_test! {
+    #[test]
+    fn get_config_xdg_yml() {
+        let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
+        rt.block_on(async {
+            env::set_var("XDG_CONFIG_HOME", "./tests/assets/config_autoload/xdg_yml");
+            let config = Config::get_config().await.unwrap();
+
+            assert_eq!(config.block.clicked_env_variable, String::from("xdg_yml"));
         });
     }
 }
@@ -90,10 +103,39 @@ rusty_fork_test! {
 
         rt.block_on(async {
             env::remove_var("XDG_CONFIG_HOME");
-            env::set_var("HOME", "./tests/assets/config_autoload/2");
+            env::set_var("HOME", "./tests/assets/config_autoload/home");
             let config = Config::get_config().await.unwrap();
 
-            assert_eq!(config.block.clicked_env_variable, String::from("2"));
+            assert_eq!(config.block.clicked_env_variable, String::from("home"));
+        });
+    }
+}
+
+rusty_fork_test! {
+    #[test]
+    fn get_config_home_yml() {
+        let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
+
+        rt.block_on(async {
+            env::remove_var("XDG_CONFIG_HOME");
+            env::set_var("HOME", "./tests/assets/config_autoload/home_yml");
+            let config = Config::get_config().await.unwrap();
+
+            assert_eq!(config.block.clicked_env_variable, String::from("home_yml"));
+        });
+    }
+}
+
+rusty_fork_test! {
+    #[test]
+    fn get_config_both_yaml_and_yml() {
+        let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
+
+        rt.block_on(async {
+            env::set_var("XDG_CONFIG_HOME", "./tests/assets/config_autoload/xdg_yaml_yml");
+            let config = Config::get_config().await.unwrap();
+
+            assert_eq!(config.block.clicked_env_variable, String::from("yaml"));
         });
     }
 }
