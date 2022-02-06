@@ -43,7 +43,8 @@ impl fmt::Display for UdsServerError {
                         "If asyncdwmblocks is not running that means that socket file wasn't ",
                         "successfully deleted.\n",
                         "Do it and retry running asyncdwmblocks or run asyncdwmblocks ",
-                        "with --force-remove-uds-file flag enabled."
+                        "with --force-remove-uds-file flag enabled.\n",
+                        "(note) this will not work if you are using Linux Abstract Socket Namespace."
                     );
                     msg.push_str(s);
                 }
@@ -116,10 +117,13 @@ impl Server for UdsServer {
     type Error = UdsServerError;
 
     async fn run(&mut self) -> Result<(), Self::Error> {
-        let listener = match UnixListener::bind(&self.config.ipc.uds.addr) {
+        let listener = match UnixListener::bind(&self.config.ipc.uds.addr()) {
             Ok(listener) => listener,
             Err(e) => match e.kind() {
-                io::ErrorKind::AddrInUse if self.config.ipc.uds.force_remove_uds_file => {
+                io::ErrorKind::AddrInUse
+                    if self.config.ipc.uds.force_remove_uds_file
+                        && !self.config.ipc.uds.abstract_namespace =>
+                {
                     tokio::fs::remove_file(&self.config.ipc.uds.addr).await?;
 
                     UnixListener::bind(&self.config.ipc.uds.addr)?
@@ -168,10 +172,21 @@ impl Server for UdsServer {
 
 impl Drop for UdsServer {
     fn drop(&mut self) {
+        let is_abstract_namespace = {
+            #[cfg(target_os = "linux")]
+            {
+                self.config.ipc.uds.abstract_namespace
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                false
+            }
+        };
+
         // Unlink socket file only if we connected to it.
         // This prevens us from deleting socket file that
         // another process is using (and we falied to bind to it).
-        if self.binded {
+        if self.binded && !is_abstract_namespace {
             // Ignore errors during cleanup
             let _ = std::fs::remove_file(&self.config.ipc.uds.addr);
         }
@@ -185,6 +200,8 @@ mod tests {
     use crate::config;
     use crate::ipc::ServerType;
     use chrono::{DateTime, Utc};
+    use std::fs;
+    use std::io::ErrorKind;
     use std::path::PathBuf;
     use std::time::SystemTime;
     use tokio::io::AsyncWriteExt;
@@ -207,11 +224,11 @@ mod tests {
                 server_type: ServerType::UnixDomainSocket,
                 uds: config::ConfigIpcUnixDomainSocket {
                     addr,
-                    ..config::ConfigIpcUnixDomainSocket::default()
+                    ..Default::default()
                 },
-                ..config::ConfigIpc::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
 
@@ -223,7 +240,7 @@ mod tests {
         });
 
         tokio::spawn(async move {
-            let mut stream = UnixStream::connect(&config.ipc.uds.addr).await.unwrap();
+            let mut stream = UnixStream::connect(&config.ipc.uds.addr()).await.unwrap();
 
             stream
                 .write_all(b"REFRESH date\r\nBUTTON 3 weather\r\n")
@@ -258,11 +275,11 @@ mod tests {
                 server_type: ServerType::UnixDomainSocket,
                 uds: config::ConfigIpcUnixDomainSocket {
                     addr,
-                    ..config::ConfigIpcUnixDomainSocket::default()
+                    ..Default::default()
                 },
-                ..config::ConfigIpc::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
 
@@ -302,11 +319,11 @@ mod tests {
                 server_type: ServerType::UnixDomainSocket,
                 uds: config::ConfigIpcUnixDomainSocket {
                     addr,
-                    ..config::ConfigIpcUnixDomainSocket::default()
+                    ..Default::default()
                 },
-                ..config::ConfigIpc::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
 
@@ -343,11 +360,11 @@ mod tests {
                 server_type: ServerType::UnixDomainSocket,
                 uds: config::ConfigIpcUnixDomainSocket {
                     addr,
-                    ..config::ConfigIpcUnixDomainSocket::default()
+                    ..Default::default()
                 },
-                ..config::ConfigIpc::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
 
@@ -363,5 +380,61 @@ mod tests {
         handle.await.unwrap();
 
         assert!(!&config.ipc.uds.addr.exists());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn run_uds_server_abstract_namespace() {
+        let timestamp: DateTime<Utc> = DateTime::from(SystemTime::now());
+        let timestamp = timestamp.format("%s").to_string();
+        let addr = PathBuf::from(format!(
+            "/tmp/asyncdwmblocks_test-server-abstract-namespace{}.socket",
+            timestamp
+        ));
+
+        let (sender, mut receiver) = mpsc::channel(8);
+        let config = Config {
+            ipc: config::ConfigIpc {
+                server_type: ServerType::UnixDomainSocket,
+                uds: config::ConfigIpcUnixDomainSocket {
+                    addr: addr.clone(),
+                    abstract_namespace: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+        .arc();
+
+        let (_, termination_signal_receiver) = broadcast::channel(8);
+
+        let mut server = UdsServer::new(sender, termination_signal_receiver, Arc::clone(&config));
+        tokio::spawn(async move {
+            let _ = server.run().await;
+        });
+
+        tokio::spawn(async move {
+            // Check that file does not exists. Socket is created in abstract namespace.
+            let err = fs::metadata(addr);
+            assert!(err.is_err());
+            assert_eq!(err.unwrap_err().kind(), ErrorKind::NotFound);
+
+            let mut stream = UnixStream::connect(&config.ipc.uds.addr()).await.unwrap();
+
+            stream
+                .write_all(b"REFRESH date\r\nBUTTON 3 weather\r\n")
+                .await
+                .unwrap();
+        });
+
+        assert_eq!(
+            receiver.recv().await.unwrap(),
+            BlockRefreshMessage::new(String::from("date"), BlockRunMode::Normal)
+        );
+        assert_eq!(
+            receiver.recv().await.unwrap(),
+            BlockRefreshMessage::new(String::from("weather"), BlockRunMode::Button(3))
+        );
     }
 }

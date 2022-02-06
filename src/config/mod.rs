@@ -29,6 +29,7 @@
 mod defaults;
 
 use std::error::Error;
+use std::ffi::OsString;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -132,11 +133,52 @@ pub struct ConfigIpcTcp {
 #[cfg_attr(feature = "config-file", derive(Deserialize))]
 #[cfg_attr(feature = "config-file", serde(default))]
 pub struct ConfigIpcUnixDomainSocket {
-    /// Address on which Unix domain socket Server/Notier listens on/connects to.
+    /// Address on which Unix domain socket Server/Notifier listens on/connects to.
     pub addr: PathBuf,
     /// If set to true UdsServer will remove socket file before starting
     #[cfg_attr(feature = "config-file", serde(skip))]
     pub force_remove_uds_file: bool,
+    /// Use Linux Abstract Socket Namespace
+    #[cfg(target_os = "linux")]
+    pub abstract_namespace: bool,
+}
+
+impl ConfigIpcUnixDomainSocket {
+    /// Returns computed socket path taking into concideration **abstract_namespace**
+    /// flag when target is linux.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use asyncdwmblocks::config::ConfigIpcUnixDomainSocket;
+    /// use std::path::PathBuf;
+    ///
+    /// # #[cfg(target_os = "linux")]
+    /// # fn main() {
+    /// let mut config = ConfigIpcUnixDomainSocket {
+    ///     addr: PathBuf::from("/tmp/socket"),
+    ///     force_remove_uds_file: false,
+    ///     abstract_namespace: false
+    /// };
+    ///
+    /// assert_eq!(config.addr().as_os_str().to_str().unwrap(), "/tmp/socket");
+    /// config.abstract_namespace = true;
+    /// assert_eq!(config.addr().as_os_str().to_str().unwrap(), "\u{0}/tmp/socket");
+    /// # }
+    /// ```
+    pub fn addr(&self) -> PathBuf {
+        let mut path = OsString::with_capacity(self.addr.capacity());
+
+        #[cfg(target_os = "linux")]
+        {
+            if self.abstract_namespace {
+                path.push("\u{0}");
+            }
+        }
+        path.push(&self.addr);
+
+        path.into()
+    }
 }
 
 /// Configuration for IPC (inter progess cominiucation).

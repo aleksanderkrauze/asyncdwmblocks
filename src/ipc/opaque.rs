@@ -315,9 +315,9 @@ mod tests {
             ipc: config::ConfigIpc {
                 server_type: ServerType::Tcp,
                 tcp: config::ConfigIpcTcp { port: 44010 },
-                ..config::ConfigIpc::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
 
@@ -343,15 +343,15 @@ mod tests {
                 server_type: ServerType::UnixDomainSocket,
                 uds: config::ConfigIpcUnixDomainSocket {
                     addr,
-                    ..config::ConfigIpcUnixDomainSocket::default()
+                    ..Default::default()
                 },
-                ..config::ConfigIpc::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
 
-        opaque_server!(config, UnixStream, &config.ipc.uds.addr);
+        opaque_server!(config, UnixStream, &config.ipc.uds.addr());
     }
 
     #[tokio::test]
@@ -361,9 +361,9 @@ mod tests {
             ipc: config::ConfigIpc {
                 server_type: ServerType::Tcp,
                 tcp: config::ConfigIpcTcp { port: 44011 },
-                ..config::ConfigIpc::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
 
@@ -390,15 +390,15 @@ mod tests {
                 server_type: ServerType::UnixDomainSocket,
                 uds: config::ConfigIpcUnixDomainSocket {
                     addr,
-                    ..config::ConfigIpcUnixDomainSocket::default()
+                    ..Default::default()
                 },
-                ..config::ConfigIpc::default()
+                ..Default::default()
             },
             ..Config::default()
         }
         .arc();
 
-        opaque_notifier!(config, UnixListener::bind(&config.ipc.uds.addr).unwrap());
+        opaque_notifier!(config, UnixListener::bind(&config.ipc.uds.addr()).unwrap());
 
         fs::remove_file(&config.ipc.uds.addr).unwrap();
     }

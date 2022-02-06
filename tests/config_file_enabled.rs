@@ -70,6 +70,17 @@ async fn load_configuration_uds() {
     );
 }
 
+#[cfg(all(feature = "uds", target_os = "linux"))]
+#[tokio::test]
+async fn load_configuration_uds_abstract_namespace() {
+    let config = Config::load_from_file("./tests/assets/config_uds_abstract_namespace.yaml")
+        .await
+        .unwrap();
+
+    assert_eq!(config.ipc.server_type, ServerType::UnixDomainSocket);
+    assert!(config.ipc.uds.abstract_namespace);
+}
+
 rusty_fork_test! {
     #[test]
     fn get_config_xdg() {

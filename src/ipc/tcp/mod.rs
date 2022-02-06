@@ -26,9 +26,9 @@ mod tests {
             ipc: config::ConfigIpc {
                 server_type: ServerType::Tcp,
                 tcp: config::ConfigIpcTcp { port: 44005 },
-                ..config::ConfigIpc::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
 

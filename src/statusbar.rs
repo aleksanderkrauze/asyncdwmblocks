@@ -358,9 +358,9 @@ mod tests {
         let config = Config {
             statusbar: config::ConfigStatusBar {
                 delimiter: " ".into(),
-                ..config::ConfigStatusBar::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
         let mut statusbar = setup_blocks_for_get_status_bar(
@@ -375,9 +375,9 @@ mod tests {
         let config = Config {
             statusbar: config::ConfigStatusBar {
                 delimiter: " ".into(),
-                ..config::ConfigStatusBar::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
         let mut statusbar =
@@ -390,9 +390,9 @@ mod tests {
         let config = Config {
             statusbar: config::ConfigStatusBar {
                 delimiter: " | ".into(),
-                ..config::ConfigStatusBar::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
         let mut statusbar = setup_blocks_for_get_status_bar(
@@ -410,9 +410,9 @@ mod tests {
         let config = Config {
             statusbar: config::ConfigStatusBar {
                 delimiter: " | ".into(),
-                ..config::ConfigStatusBar::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
         // Flag -u sets UTC standard. Since this is what we are comparing
@@ -701,7 +701,7 @@ mod tests {
                 blocks,
                 delimiter: String::from(" ❤️ "),
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
 

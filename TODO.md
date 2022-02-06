@@ -1,7 +1,6 @@
 # TODO list:
 
- - [ ] Use consistent naming (does Block has a name of an id?)
- - [ ] Add option to use "Linux Abstract Socket Namespace" when target is Linux.
+ - [ ] Use consistent naming (does Block has a name of an id, Uds or UnixDomainSocket?)
  - [ ] Add D-BUS IPC option
  - [ ] Block sends result though channel
  - [ ] Create patch for dwm (for clickable blocks)
@@ -15,6 +14,7 @@
 
 # Idea
 
+ - [ ] Use atomics instead of channels that send unit type () (?)
  - [ ] Add tooltip on hoover (?)
  - [ ] Add InternalConfig to Config and use it (server protocol?)
  - [ ] Put timeout at running Block's command (?)
@@ -23,6 +23,7 @@
 
 # Done
 
+ - [x] Add option to use "Linux Abstract Socket Namespace" when target is Linux.
  - [x] Look for `config.yml` when `config.yaml` is not found
  - [x] Use Default::default when creating Config by hand
  - [x] Add option to forcefully remove UDS file when starting UDS server (--force-remove-uds-file)

@@ -95,7 +95,7 @@ impl Notifier for UdsNotifier {
     }
 
     async fn send_messages(self) -> Result<(), Self::Error> {
-        let mut stream = UnixStream::connect(&self.config.ipc.uds.addr).await?;
+        let mut stream = UnixStream::connect(&self.config.ipc.uds.addr()).await?;
 
         let frames: Frames = self.buff.into_iter().map(Frame::from).collect();
         let data = frames.encode();
@@ -115,6 +115,7 @@ mod tests {
     use crate::statusbar::BlockRefreshMessage;
     use chrono::{DateTime, Utc};
     use std::fs;
+    use std::io::ErrorKind;
     use std::path::PathBuf;
     use std::time::SystemTime;
     use tokio::io::AsyncReadExt;
@@ -134,11 +135,11 @@ mod tests {
                 server_type: ServerType::UnixDomainSocket,
                 uds: config::ConfigIpcUnixDomainSocket {
                     addr,
-                    ..config::ConfigIpcUnixDomainSocket::default()
+                    ..Default::default()
                 },
-                ..config::ConfigIpc::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
 
@@ -160,7 +161,7 @@ mod tests {
         });
 
         let mut buff = Vec::new();
-        let listener = UnixListener::bind(&config.ipc.uds.addr).unwrap();
+        let listener = UnixListener::bind(&config.ipc.uds.addr()).unwrap();
         let (mut stream, _) = listener.accept().await.unwrap();
         stream.read_to_end(&mut buff).await.unwrap();
 
@@ -186,11 +187,11 @@ mod tests {
                 server_type: ServerType::UnixDomainSocket,
                 uds: config::ConfigIpcUnixDomainSocket {
                     addr,
-                    ..config::ConfigIpcUnixDomainSocket::default()
+                    ..Default::default()
                 },
-                ..config::ConfigIpc::default()
+                ..Default::default()
             },
-            ..Config::default()
+            ..Default::default()
         }
         .arc();
 
@@ -206,5 +207,62 @@ mod tests {
             n.unwrap_err().into_io_error().unwrap().kind(),
             io::ErrorKind::NotFound
         );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn send_notification_abstract_namespace() {
+        let timestamp: DateTime<Utc> = DateTime::from(SystemTime::now());
+        let timestamp = timestamp.format("%s").to_string();
+        let addr = PathBuf::from(format!(
+            "/tmp/asyncdwmblocks_test-notifier-abstract-namespace-{}.socket",
+            timestamp
+        ));
+
+        let config = Config {
+            ipc: config::ConfigIpc {
+                server_type: ServerType::UnixDomainSocket,
+                uds: config::ConfigIpcUnixDomainSocket {
+                    addr: addr.clone(),
+                    abstract_namespace: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+        .arc();
+
+        let mut notifier = UdsNotifier::new(Arc::clone(&config));
+        tokio::spawn(async move {
+            notifier.push_message(BlockRefreshMessage::new(
+                String::from("cpu"),
+                BlockRunMode::Normal,
+            ));
+            notifier.push_message(BlockRefreshMessage::new(
+                String::from("memory"),
+                BlockRunMode::Button(3),
+            ));
+            notifier.push_message(BlockRefreshMessage::new(
+                String::from("battery"),
+                BlockRunMode::Button(1),
+            ));
+            notifier.send_messages().await.unwrap();
+        });
+
+        let mut buff = Vec::new();
+        let listener = UnixListener::bind(&config.ipc.uds.addr()).unwrap();
+        let (mut stream, _) = listener.accept().await.unwrap();
+        stream.read_to_end(&mut buff).await.unwrap();
+
+        assert_eq!(
+            buff.as_slice(),
+            b"REFRESH cpu\r\nBUTTON 3 memory\r\nBUTTON 1 battery\r\n"
+        );
+
+        // Check that file does not exists. Socket is created in abstract namespace.
+        let err = fs::metadata(addr);
+        assert!(err.is_err());
+        assert_eq!(err.unwrap_err().kind(), ErrorKind::NotFound);
     }
 }
