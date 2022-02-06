@@ -143,6 +143,7 @@ pub struct ConfigIpcUnixDomainSocket {
     pub abstract_namespace: bool,
 }
 
+#[cfg(feature = "uds")]
 impl ConfigIpcUnixDomainSocket {
     /// Returns computed socket path taking into concideration **abstract_namespace**
     /// flag when target is linux.
