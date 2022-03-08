@@ -1,5 +1,9 @@
 # TODO list:
 
+ - [ ] Remove Opaque types and use simple function that returns Box<dyn Server/Notifier>
+ - [ ] Use config library
+ - [ ] Mock network and Unix Sockets in test environment
+ - [ ] Add option to refresh all blocks
  - [ ] Use consistent naming (does Block has a name of an id, Uds or UnixDomainSocket?)
  - [ ] Add D-BUS IPC option
  - [ ] Block sends result though channel
@@ -10,7 +14,6 @@
  - [ ] Write documentation for asyncdwmblocks library (lib.rs file)
  - [ ] Add option to daemonize asyncdwmblocks (bin)
  - [ ] In config file parse ~ as $HOME and possibly parse env variables
- - [ ] Add option to refresh all blocks
 
 # Idea
 
