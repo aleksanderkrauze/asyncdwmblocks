@@ -1,6 +1,8 @@
 //! This module defines [SplitAtRN]. A struct that allows to split
 //! stream of bytes at `b"\r\n"`.
 
+use std::iter::FusedIterator;
+
 /// Splits stream of bytes at `b"\r\n"`.
 ///
 /// More precisely it returns (as an `Iterator`) a list of
@@ -69,6 +71,8 @@ impl<'a> Iterator for SplitAtRN<'a> {
         None
     }
 }
+
+impl FusedIterator for SplitAtRN<'_> {}
 
 #[cfg(test)]
 mod tests {
